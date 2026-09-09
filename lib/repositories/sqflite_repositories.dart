@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../services/backup_service.dart';
 import 'contracts.dart';
 import 'delivery_repository.dart';
 import 'expense_repository.dart';
@@ -57,6 +58,9 @@ class SqfliteRepositories implements Repositories {
 
   @override
   final SettingsRepository settings;
+
+  @override
+  BackupService get backup => BackupService(database);
 
   Future<void> close() => database.close();
 }

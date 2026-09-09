@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'providers/app_state.dart';
+import 'screens/backup_actions.dart';
 import 'screens/categories_screen.dart';
 import 'screens/deliver_screen.dart';
 import 'screens/dues_screen.dart';
@@ -114,7 +117,14 @@ class _AppShellState extends State<AppShell> {
                 case 3:
                   openScreen(context, const CategoriesScreen());
                 case 4:
-                  openScreen(context, const SettingsScreen());
+                  final AppState state = context.read<AppState>();
+                  openScreen(
+                    context,
+                    SettingsScreen(
+                      backup: () => BackupActions.export(context, state),
+                      restore: () => BackupActions.restore(context, state),
+                    ),
+                  );
               }
             },
             itemBuilder: (BuildContext context) => const <PopupMenuEntry<int>>[

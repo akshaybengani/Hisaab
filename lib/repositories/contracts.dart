@@ -1,5 +1,6 @@
 import '../constants.dart';
 import '../models/models.dart';
+import '../services/backup_service.dart';
 
 /// The storage contracts every screen codes against.
 ///
@@ -117,4 +118,12 @@ abstract interface class Repositories {
   RequestRepository get requests;
   ExpenseRepository get expenses;
   SettingsRepository get settings;
+
+  /// Exports and restores the whole book.
+  ///
+  /// Null where there is no file behind the data, which is only ever an
+  /// in-memory fake in a test. On a device this is always present, and the
+  /// settings screen offering a dead tile instead is a bug that reached the
+  /// emulator once already.
+  BackupService? get backup;
 }

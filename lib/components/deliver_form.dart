@@ -191,6 +191,10 @@ class _DeliverFormState extends State<DeliverForm> {
           for (int index = 0; index < _lines.length; index++)
             _LineCard(
               key: ValueKey<_LineDraft>(_lines[index]),
+              // Every line reads the same product name until it is changed,
+              // so the picker carries the only handle that names one line
+              // rather than another.
+              productKey: ValueKey<String>('delivery-line-product-$index'),
               line: _lines[index],
               products: widget.products,
               onProductChanged: (int productId) {
@@ -261,6 +265,7 @@ class _LineCard extends StatelessWidget {
     required this.line,
     required this.products,
     required this.unitLabel,
+    required this.productKey,
     required this.onProductChanged,
     required this.onChanged,
     required this.onRemove,
@@ -268,6 +273,10 @@ class _LineCard extends StatelessWidget {
   });
 
   final _LineDraft line;
+
+  /// Names this line's product picker, which is otherwise indistinguishable
+  /// from every other line's.
+  final Key productKey;
   final List<Product> products;
   final String unitLabel;
   final ValueChanged<int> onProductChanged;
@@ -287,6 +296,7 @@ class _LineCard extends StatelessWidget {
               children: <Widget>[
                 Expanded(
                   child: DropdownButtonFormField<int>(
+                    key: productKey,
                     initialValue: line.productId,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Product'),

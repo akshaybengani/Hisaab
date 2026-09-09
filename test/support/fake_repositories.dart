@@ -2,6 +2,7 @@ import 'package:hisaab/constants.dart';
 import 'package:hisaab/helpers/dates.dart';
 import 'package:hisaab/models/models.dart';
 import 'package:hisaab/repositories/contracts.dart';
+import 'package:hisaab/services/backup_service.dart';
 
 /// An in-memory [Repositories], so a connected screen can be pumped without a
 /// database.
@@ -159,6 +160,12 @@ class FakeRepositories implements Repositories {
   final FakeExpenseRepository expenses = FakeExpenseRepository();
   @override
   final FakeSettingsRepository settings = FakeSettingsRepository();
+
+  /// Null on purpose. There is no file behind an in-memory fake, so there is
+  /// nothing to export, and a stub here would let a settings screen look
+  /// wired when it is not. See spec-27 dec-9.
+  @override
+  BackupService? get backup => null;
 }
 
 class FakeProductRepository implements ProductRepository {
@@ -252,7 +259,8 @@ class FakeDeliveryRepository implements DeliveryRepository {
   int nextItemId = 1;
 
   @override
-  Future<List<DeliveryWithItems>> all() async => List<DeliveryWithItems>.of(rows);
+  Future<List<DeliveryWithItems>> all() async =>
+      List<DeliveryWithItems>.of(rows);
 
   @override
   Future<DeliveryWithItems?> byId(int id) async =>
@@ -460,13 +468,11 @@ class FakeRequestRepository implements RequestRepository {
 
   @override
   Future<List<ProductRequest>> byStatus(RequestStatus status) async {
-    final List<ProductRequest> matching = rows
-        .where((ProductRequest r) => r.status == status)
-        .toList()
-      ..sort(
-        (ProductRequest a, ProductRequest b) =>
-            a.createdAt.compareTo(b.createdAt),
-      );
+    final List<ProductRequest> matching =
+        rows.where((ProductRequest r) => r.status == status).toList()..sort(
+          (ProductRequest a, ProductRequest b) =>
+              a.createdAt.compareTo(b.createdAt),
+        );
     return matching;
   }
 
