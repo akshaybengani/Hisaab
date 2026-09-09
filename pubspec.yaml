@@ -72,6 +72,10 @@ flutter:
 
   assets:
     - assets/branding/
+    # Bundled so a PDF renders the rupee sign offline. The pdf package's
+    # built-in Helvetica has no glyph for it and draws a blank box instead.
+    # OFL.txt ships beside the files because the licence requires it.
+    - assets/fonts/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
