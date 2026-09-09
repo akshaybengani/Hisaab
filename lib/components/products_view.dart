@@ -4,6 +4,7 @@ import '../helpers/money.dart';
 import '../models/models.dart';
 import 'empty_state.dart';
 import 'money_field.dart';
+import 'search_field.dart';
 import 'section_header.dart';
 
 /// Everything that gets bought and handed out.
@@ -32,6 +33,28 @@ class ProductsView extends StatelessWidget {
       );
     }
 
+    return SearchScope<Product>(
+      hint: 'Search products',
+      items: products,
+      fieldsOf: (Product product) => <String?>[
+        product.name,
+        product.unitLabel,
+        product.category,
+      ],
+      builder: (BuildContext context, List<Product> rows) =>
+          _ProductList(products: rows, onTapProduct: onTapProduct),
+    );
+  }
+}
+
+class _ProductList extends StatelessWidget {
+  const _ProductList({required this.products, required this.onTapProduct});
+
+  final List<Product> products;
+  final ValueChanged<Product> onTapProduct;
+
+  @override
+  Widget build(BuildContext context) {
     final List<Product> active = products
         .where((Product p) => !p.archived)
         .toList(growable: false);
@@ -178,9 +201,7 @@ class _ProductEditFormState extends State<ProductEditForm> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _category,
-            decoration: const InputDecoration(
-              labelText: 'Category (optional)',
-            ),
+            decoration: const InputDecoration(labelText: 'Category (optional)'),
           ),
           if (widget.knownCategories.isNotEmpty) ...<Widget>[
             const SizedBox(height: 8),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/models.dart';
 import 'empty_state.dart';
+import 'search_field.dart';
 
 /// Everyone in the book, archived ones marked rather than hidden away.
 class PeopleView extends StatelessWidget {
@@ -28,6 +29,28 @@ class PeopleView extends StatelessWidget {
         onAction: onAddPerson,
       );
     }
+    return SearchScope<Person>(
+      hint: 'Search people',
+      items: people,
+      fieldsOf: (Person person) => <String?>[
+        person.name,
+        person.phone,
+        person.note,
+      ],
+      builder: (BuildContext context, List<Person> rows) =>
+          _PeopleList(people: rows, onTapPerson: onTapPerson),
+    );
+  }
+}
+
+class _PeopleList extends StatelessWidget {
+  const _PeopleList({required this.people, required this.onTapPerson});
+
+  final List<Person> people;
+  final ValueChanged<Person> onTapPerson;
+
+  @override
+  Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 96),
       itemCount: people.length,

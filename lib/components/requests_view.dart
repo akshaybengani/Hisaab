@@ -5,6 +5,7 @@ import '../helpers/dates.dart';
 import '../models/models.dart';
 import '../providers/view_models.dart';
 import 'empty_state.dart';
+import 'search_field.dart';
 import 'section_header.dart';
 
 /// The request, order, deliver pipeline.
@@ -113,59 +114,12 @@ class _RequestsViewState extends State<RequestsView> {
     return Column(
       children: <Widget>[
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.only(bottom: 96),
-            children: <Widget>[
-              if (_pending.isNotEmpty) ...<Widget>[
-                SectionHeader(
-                  title: 'Pending',
-                  trailing: countLabel(_pending.length, 'request'),
-                ),
-                for (final ProductRequest request in _pending)
-                  CheckboxListTile(
-                    value: _ticked.contains(request.id),
-                    onChanged: (bool? on) => setState(() {
-                      final int? id = request.id;
-                      if (id == null) return;
-                      if (on ?? false) {
-                        _ticked.add(id);
-                      } else {
-                        _ticked.remove(id);
-                      }
-                    }),
-                    title: Text(_label(request)),
-                    subtitle: Text(
-                      '${_who(request)}, asked '
-                      '${Dates.ageLabel(request.createdAt, now: widget.now)} ago',
-                    ),
-                    secondary: _RequestMenu(
-                      request: request,
-                      onMarkOrdered: () =>
-                          widget.onMarkOrdered(<ProductRequest>[request]),
-                      onCancel: () => widget.onCancel(request),
-                    ),
-                  ),
-              ],
-              if (_ordered.isNotEmpty) ...<Widget>[
-                SectionHeader(
-                  title: 'Ordered',
-                  trailing: countLabel(_ordered.length, 'request'),
-                ),
-                for (final ProductRequest request in _ordered)
-                  ListTile(
-                    title: Text(_label(request)),
-                    subtitle: Text(
-                      '${_who(request)}, asked '
-                      '${Dates.ageLabel(request.createdAt, now: widget.now)} ago',
-                    ),
-                    trailing: _RequestMenu(
-                      request: request,
-                      onConvert: () => widget.onConvert(request),
-                      onCancel: () => widget.onCancel(request),
-                    ),
-                  ),
-              ],
-            ],
+          child: SearchScope<ProductRequest>(
+            hint: 'Search requests',
+            items: <ProductRequest>[..._pending, ..._ordered],
+            fieldsOf: _fieldsOf,
+            builder: (BuildContext context, List<ProductRequest> rows) =>
+                _list(rows),
           ),
         ),
         if (_ticked.isNotEmpty)
@@ -177,6 +131,80 @@ class _RequestsViewState extends State<RequestsView> {
               setState(_ticked.clear);
             },
           ),
+      ],
+    );
+  }
+
+  /// Everything a person might type looking for one request.
+  List<String?> _fieldsOf(ProductRequest request) => <String?>[
+    widget.productsById[request.productId]?.name,
+    widget.productsById[request.productId]?.unitLabel,
+    widget.peopleById[request.personId]?.name,
+    request.forMember,
+    request.note,
+  ];
+
+  /// The two sections, rebuilt from whatever survived the search. Each keeps
+  /// the oldest first order it was given.
+  Widget _list(List<ProductRequest> rows) {
+    final List<ProductRequest> pending = rows
+        .where((ProductRequest r) => widget.pending.contains(r))
+        .toList(growable: false);
+    final List<ProductRequest> ordered = rows
+        .where((ProductRequest r) => widget.ordered.contains(r))
+        .toList(growable: false);
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 96),
+      children: <Widget>[
+        if (pending.isNotEmpty) ...<Widget>[
+          SectionHeader(
+            title: 'Pending',
+            trailing: countLabel(pending.length, 'request'),
+          ),
+          for (final ProductRequest request in pending)
+            CheckboxListTile(
+              value: _ticked.contains(request.id),
+              onChanged: (bool? on) => setState(() {
+                final int? id = request.id;
+                if (id == null) return;
+                if (on ?? false) {
+                  _ticked.add(id);
+                } else {
+                  _ticked.remove(id);
+                }
+              }),
+              title: Text(_label(request)),
+              subtitle: Text(
+                '${_who(request)}, asked '
+                '${Dates.ageLabel(request.createdAt, now: widget.now)} ago',
+              ),
+              secondary: _RequestMenu(
+                request: request,
+                onMarkOrdered: () =>
+                    widget.onMarkOrdered(<ProductRequest>[request]),
+                onCancel: () => widget.onCancel(request),
+              ),
+            ),
+        ],
+        if (ordered.isNotEmpty) ...<Widget>[
+          SectionHeader(
+            title: 'Ordered',
+            trailing: countLabel(ordered.length, 'request'),
+          ),
+          for (final ProductRequest request in ordered)
+            ListTile(
+              title: Text(_label(request)),
+              subtitle: Text(
+                '${_who(request)}, asked '
+                '${Dates.ageLabel(request.createdAt, now: widget.now)} ago',
+              ),
+              trailing: _RequestMenu(
+                request: request,
+                onConvert: () => widget.onConvert(request),
+                onCancel: () => widget.onCancel(request),
+              ),
+            ),
+        ],
       ],
     );
   }
