@@ -599,16 +599,25 @@ class StatementPdfService {
     final List<String> parts = <String>[
       ?_trimmed(line.detail),
       if (member != null) 'for $member',
-      ?_settlementLabel(line.settlement),
+      ?_settlementLabel(line),
     ];
     return parts.isEmpty ? null : parts.join(', ');
   }
 
-  static String? _settlementLabel(SettlementState? state) => switch (state) {
+  /// A settled line names the amount conceded, because a person reading their
+  /// own statement should see the discount they were given rather than a word
+  /// that quietly stands in for it. See spec-27 ac-43.
+  static String? _settlementLabel(
+    StatementLine line,
+  ) => switch (line.settlement) {
     null => null,
     SettlementState.paid => 'paid',
     SettlementState.partlyPaid => 'partly paid',
     SettlementState.unpaid => 'unpaid',
+    SettlementState.settled =>
+      line.concededPaise > 0
+          ? 'settled, ${Money.formatWithSymbol(line.concededPaise)} discount'
+          : 'settled',
   };
 
   static String? _duesDetail(PersonBalance balance) {

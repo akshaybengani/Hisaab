@@ -149,6 +149,7 @@ abstract final class StatementCsvService {
   static String _settlement(SettlementState? state) => switch (state) {
     null => '',
     SettlementState.paid => 'Paid',
+    SettlementState.settled => 'Settled',
     SettlementState.partlyPaid => 'Partly paid',
     SettlementState.unpaid => 'Unpaid',
   };

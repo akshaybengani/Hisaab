@@ -46,7 +46,8 @@ abstract final class StatementLabels {
         'Cash lent': StatementLineKind.cashLent,
         'Cash borrowed': StatementLineKind.cashBorrowed,
         'Repayment': StatementLineKind.repayment,
-        'Round-off adjustment': StatementLineKind.adjustment,
+        'Discount given': StatementLineKind.adjustment,
+        'Change kept': StatementLineKind.adjustment,
         'Written off': StatementLineKind.writeOff,
       };
 
@@ -61,13 +62,12 @@ abstract final class StatementLabels {
 
   /// What the row reads as on a statement, in text and in the PDF alike.
   ///
-  /// A round-off gets the direction-picked word. Everything else keeps the
-  /// description it arrived with, including a delivery, whose description is
-  /// the product that was handed over.
-  static String labelFor(StatementLine line) {
-    if (kindOf(line) != StatementLineKind.adjustment) return line.description;
-    return line.amountPaise < 0 ? 'Discount given' : 'Change kept';
-  }
+  /// Every row keeps the description it arrived with, because `LedgerMath` is
+  /// the one place that decides the words, including which of "discount given"
+  /// and "change kept" an adjustment reads as. Deriving it a second time here
+  /// is how the two halves drift apart, which is what the guard test below
+  /// caught the first time round.
+  static String labelFor(StatementLine line) => line.description;
 
   /// The gap between what a purchase cost on its lines and what was actually
   /// paid for it, in words. Null where the two agree.

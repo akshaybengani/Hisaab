@@ -23,6 +23,11 @@ class AppState extends ChangeNotifier {
 
   final Repositories _repos;
 
+  /// The storage bundle, for the services that take a repository rather than
+  /// already-loaded rows. The screens still read their data from this state,
+  /// never straight from here.
+  Repositories get repositories => _repos;
+
   bool _loading = false;
   bool _loadedOnce = false;
   Object? _loadError;
@@ -144,10 +149,7 @@ class AppState extends ChangeNotifier {
         <int, List<DeliveryWithItems>>{};
     for (final DeliveryWithItems delivery in _deliveries) {
       out
-          .putIfAbsent(
-            delivery.delivery.personId,
-            () => <DeliveryWithItems>[],
-          )
+          .putIfAbsent(delivery.delivery.personId, () => <DeliveryWithItems>[])
           .add(delivery);
     }
     return out;
@@ -445,12 +447,10 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> setThemeMode(ThemeMode mode) => writeSetting(
-    SettingKeys.themeMode,
-    switch (mode) {
-      ThemeMode.light => 'light',
-      ThemeMode.dark => 'dark',
-      ThemeMode.system => 'system',
-    },
-  );
+  Future<void> setThemeMode(ThemeMode mode) =>
+      writeSetting(SettingKeys.themeMode, switch (mode) {
+        ThemeMode.light => 'light',
+        ThemeMode.dark => 'dark',
+        ThemeMode.system => 'system',
+      });
 }

@@ -646,6 +646,16 @@ void main() {
                     : MoneyDirection.incoming,
                 kind: kind,
               ),
+            // An adjustment reads by direction, so it is the one kind that
+            // yields two descriptions and both have to stay recognised.
+            MoneyEntry(
+              id: 99,
+              personId: 1,
+              date: DateTime(2026, 9, 1),
+              amountPaise: 1000,
+              direction: MoneyDirection.outgoing,
+              kind: MoneyKind.adjustment,
+            ),
           ],
           productsById: const <int, Product>{},
           generatedAt: generatedAt,
@@ -659,7 +669,11 @@ void main() {
             for (final StatementLine line in group.lines) line.description,
         };
         expect(seen, StatementLabels.knownDescriptions.keys.toSet());
-        expect(seen, hasLength(MoneyKind.values.length));
+        expect(
+          seen,
+          hasLength(MoneyKind.values.length + 1),
+          reason: 'every kind, plus the adjustment\'s second direction',
+        );
 
         for (final StatementLine line in <StatementLine>[
           ...all.products.lines,
