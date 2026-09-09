@@ -38,7 +38,10 @@ android {
             if (keystorePropertiesFile.exists()) {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
+                // Resolved against android/, where key.properties lives, so a
+                // bare filename in that file means what it looks like it means.
+                // An absolute path is passed through unchanged.
+                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
             }
         }
