@@ -109,5 +109,15 @@ on-device statements, share_plus and url_launcher for the share sheet and `wa.me
 file_picker for import, shared_preferences for settings. Everything offline. Android
 sideload only, no Play Store, no iOS.
 
-Package id `com.akshaybengani.hisaab`. Release signing reads `android/key.properties`,
-which stays out of the repository.
+Package id `com.akshaybengani.hisaab`, minSdk 29 for Android 10. Release signing reads
+`android/key.properties`, which stays out of the repository.
+
+## Verifying, not asserting
+
+`tool/verify_offline.sh` checks the privacy claim against the merged release manifest,
+because that is the only place the claim is true or false. Run it after any dependency
+change: a package that merges in an INTERNET permission would silently make the README
+lie. `test/offline_posture_test.dart` covers the source side.
+
+Known debt: the release APK is 43 MB, mostly `printing` and `pdf`. `--split-per-abi`
+cuts it to roughly a third and should happen before anything is handed to a real phone.
