@@ -441,8 +441,7 @@ Future<void> main() async {
       await tester.pumpAndSettle();
 
       // The price moves to 250000.
-      await tap(tester, find.byTooltip('More'));
-      await tap(tester, find.text('Products'));
+      await openFromDrawer(tester, 'Products');
       await tap(tester, find.widgetWithText(ListTile, 'Formula 1'));
       await type(
         tester,
@@ -656,8 +655,7 @@ Future<void> main() async {
     <String>['ac-7'],
     (WidgetTester tester) async {
       await boot(tester);
-      await tap(tester, find.byTooltip('More'));
-      await tap(tester, find.text('Settings'));
+      await openFromDrawer(tester, 'Settings');
       await bring(tester, find.text('Back up to a file'));
 
       final ListTile backup = tester.widget<ListTile>(
@@ -796,8 +794,7 @@ Future<void> addProduct(
   required String unit,
   required String price,
 }) async {
-  await tap(tester, find.byTooltip('More'));
-  await tap(tester, find.text('Products'));
+  await openFromDrawer(tester, 'Products');
   await tap(tester, find.byTooltip('Add product'));
   await type(tester, find.widgetWithText(TextFormField, 'Name'), name);
   await type(tester, find.widgetWithText(TextFormField, 'Unit label'), unit);
@@ -849,6 +846,16 @@ Future<void> deliver(
     );
   }
   await tap(tester, find.text('Save delivery'));
+}
+
+/// Opens a destination from the navigation drawer.
+///
+/// People, Products, Purchases, Categories, Reports and Settings live behind
+/// the hamburger rather than a three dot menu, so reaching one is open then
+/// tap rather than a single tap.
+Future<void> openFromDrawer(WidgetTester tester, String label) async {
+  await tap(tester, find.byTooltip('Open navigation menu'));
+  await tap(tester, find.text(label).last);
 }
 
 /// Opens the dues destination from the bottom bar.
