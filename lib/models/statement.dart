@@ -65,7 +65,20 @@ class Statement {
 
   bool get isSettled => netPaise == 0;
 
-  bool get hasBothPools => !products.isEmpty && !cash.isEmpty;
+  /// True where the person owes something in BOTH pools, which is the only
+  /// case where a payment is ambiguous and the collect screen has to ask which
+  /// one it settles.
+  ///
+  /// This deliberately asks about the subtotals rather than about whether a
+  /// group has rows. Someone who has repaid a loan in full still has cash
+  /// lines, and asking them which pool a product payment belongs to would be
+  /// a question with one real answer. See spec-27 ac-35.
+  bool get hasBothPools =>
+      products.subtotalPaise != 0 && cash.subtotalPaise != 0;
+
+  /// True where the person has any history in both pools, which is what
+  /// decides whether the statement renders two sections.
+  bool get hasBothGroups => !products.isEmpty && !cash.isEmpty;
 }
 
 /// A person's position, for the dues list. Cheap enough to compute for

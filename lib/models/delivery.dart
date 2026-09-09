@@ -1,4 +1,5 @@
 import '../helpers/dates.dart';
+import 'product.dart';
 
 /// One handover of units to one person on one day.
 class Delivery {
@@ -73,6 +74,34 @@ class DeliveryItem {
     'qty': qty,
     'unit_price_paise': unitPricePaise,
   };
+
+  /// Builds a line by copying the product's price at this moment, which is
+  /// the one correct way to create one.
+  ///
+  /// The repository stores whatever price it is handed, so without this the
+  /// dec-2 snapshot would be a habit every call site had to remember rather
+  /// than a property of the type. Verified by ac-11.
+  factory DeliveryItem.snapshot({
+    required Product product,
+    required int qty,
+    int? deliveryId,
+  }) {
+    final int? productId = product.id;
+    if (productId == null) {
+      throw ArgumentError.value(
+        product.name,
+        'product',
+        'a delivery line needs a saved product, so save it first',
+      );
+    }
+    return DeliveryItem(
+      id: null,
+      deliveryId: deliveryId,
+      productId: productId,
+      qty: qty,
+      unitPricePaise: product.currentPricePaise,
+    );
+  }
 
   factory DeliveryItem.fromMap(Map<String, Object?> map) => DeliveryItem(
     id: map['id'] as int?,
