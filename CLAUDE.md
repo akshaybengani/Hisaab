@@ -24,8 +24,9 @@ isn't blocked. Long uninterrupted sessions beat correct-but-chatty ones.
 **Short messages.** Plain language, no filler, no restating what was just done. Say what
 changed and what needs an answer.
 
-**Nothing is built yet.** Until code exists, the README marks every feature as not built
-per `std-35` cl-14. Do not describe planned behaviour as though it ships.
+**The README documents only what exists** per `std-35` cl-14. It currently describes a
+working app, so anything added there must actually work, and anything removed from the app
+must leave it. Report test counts from a real run, never from memory.
 
 ## Handoff protocol
 
