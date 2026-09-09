@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,13 +11,22 @@ import '../helpers/money.dart';
 import '../models/models.dart';
 import '../providers/app_state.dart';
 import '../providers/view_models.dart';
-import 'navigation.dart';
+import '../services/share_service.dart';
+import '../services/statement_text_service.dart';
 
 /// Taking a payment off a person's balance.
 class CollectScreen extends StatelessWidget {
-  const CollectScreen({required this.person, super.key});
+  const CollectScreen({
+    required this.person,
+    this.share = const ShareService(),
+    super.key,
+  });
 
   final Person person;
+
+  /// The one way out of the app, injected so a test can read the receipt that
+  /// would have been sent instead of standing up a method channel.
+  final ShareService share;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +100,38 @@ class CollectScreen extends StatelessWidget {
 
     await state.recordCollection(payment, clearing: clearing);
     if (!context.mounted) return;
-    say(context, 'Took ${Money.formatWithSymbol(plan.paidPaise)}.');
+
+    // The messenger is read before the pop, because it is the one thing here
+    // that belongs to this route's context. The offer itself outlives the
+    // screen on purpose: the owner is usually still counting cash, and a
+    // receipt is worth sending a few seconds later.
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Took ${Money.formatWithSymbol(plan.paidPaise)}.'),
+          action: SnackBarAction(
+            label: 'Send receipt',
+            onPressed: () => unawaited(_sendReceipt(state, plan.paidPaise)),
+          ),
+        ),
+      );
+  }
+
+  /// The receipt for the payment just taken.
+  ///
+  /// [paidPaise] is what makes the message name this payment rather than
+  /// everything ever received from this person, and the statement is read
+  /// after the write so the figure it leaves open is the one that is actually
+  /// left. Offered, never sent on its own.
+  Future<void> _sendReceipt(AppState state, int paidPaise) async {
+    final Statement? statement = state.statementFor(person);
+    if (statement == null) return;
+    final String body = await StatementTextService(
+      state.repositories.settings,
+    ).receipt(statement, paidPaise: paidPaise);
+    await share.sendText(person, body);
   }
 }

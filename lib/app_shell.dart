@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'components/app_drawer.dart';
 import 'providers/app_state.dart';
 import 'screens/backup_actions.dart';
 import 'screens/categories_screen.dart';
@@ -12,6 +13,7 @@ import 'screens/navigation.dart';
 import 'screens/people_screen.dart';
 import 'screens/products_screen.dart';
 import 'screens/purchases_screen.dart';
+import 'screens/reports_screen.dart';
 import 'screens/request_edit_screen.dart';
 import 'screens/requests_screen.dart';
 import 'screens/settings_screen.dart';
@@ -25,6 +27,10 @@ import 'screens/stock_screen.dart';
 ///
 /// The shell owns the app bar and the destinations are bodies, so a tab switch
 /// cannot leave a stale title behind.
+///
+/// Everything opened now and then rather than every day sits behind the
+/// hamburger, in [AppDrawer]. That used to be a three dot menu, which fits
+/// five flat entries and stops fitting the moment there are six.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -97,46 +103,44 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  /// Opens a drawer destination.
+  ///
+  /// The pop closes the drawer, which the framework holds as a local history
+  /// entry on this route rather than as a route of its own, so it never takes
+  /// the shell with it.
+  void _open(BuildContext context, DrawerDestination destination) {
+    Navigator.of(context).pop();
+    switch (destination) {
+      case DrawerDestination.people:
+        openScreen(context, const PeopleScreen());
+      case DrawerDestination.products:
+        openScreen(context, const ProductsScreen());
+      case DrawerDestination.purchases:
+        openScreen(context, const PurchasesScreen());
+      case DrawerDestination.categories:
+        openScreen(context, const CategoriesScreen());
+      case DrawerDestination.reports:
+        openScreen(context, const ReportsScreen());
+      case DrawerDestination.settings:
+        final AppState state = context.read<AppState>();
+        openScreen(
+          context,
+          SettingsScreen(
+            backup: () => BackupActions.export(context, state),
+            restore: () => BackupActions.restore(context, state),
+          ),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_current.label),
-        actions: <Widget>[
-          ..._actionsFor(_current),
-          PopupMenuButton<int>(
-            tooltip: 'More',
-            onSelected: (int choice) {
-              switch (choice) {
-                case 0:
-                  openScreen(context, const PeopleScreen());
-                case 1:
-                  openScreen(context, const ProductsScreen());
-                case 2:
-                  openScreen(context, const PurchasesScreen());
-                case 3:
-                  openScreen(context, const CategoriesScreen());
-                case 4:
-                  final AppState state = context.read<AppState>();
-                  openScreen(
-                    context,
-                    SettingsScreen(
-                      backup: () => BackupActions.export(context, state),
-                      restore: () => BackupActions.restore(context, state),
-                    ),
-                  );
-              }
-            },
-            itemBuilder: (BuildContext context) => const <PopupMenuEntry<int>>[
-              PopupMenuItem<int>(value: 0, child: Text('People')),
-              PopupMenuItem<int>(value: 1, child: Text('Products')),
-              PopupMenuItem<int>(value: 2, child: Text('Purchases')),
-              PopupMenuItem<int>(value: 3, child: Text('Categories')),
-              PopupMenuItem<int>(value: 4, child: Text('Settings')),
-            ],
-          ),
-        ],
+        actions: _actionsFor(_current),
       ),
+      drawer: AppDrawer(onSelected: (DrawerDestination d) => _open(context, d)),
       body: IndexedStack(index: _current.index, children: _bodies),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => openScreen(context, const DeliverScreen()),
