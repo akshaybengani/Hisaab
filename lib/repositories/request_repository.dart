@@ -13,16 +13,12 @@ class SqfliteRequestRepository implements RequestRepository {
   final Database _db;
 
   @override
-  Future<List<ProductRequest>> byStatus(RequestStatus status) => _load(
-    where: 'status = ?',
-    whereArgs: <Object?>[status.value],
-  );
+  Future<List<ProductRequest>> byStatus(RequestStatus status) =>
+      _load(where: 'status = ?', whereArgs: <Object?>[status.value]);
 
   @override
-  Future<List<ProductRequest>> forPerson(int personId) => _load(
-    where: 'person_id = ?',
-    whereArgs: <Object?>[personId],
-  );
+  Future<List<ProductRequest>> forPerson(int personId) =>
+      _load(where: 'person_id = ?', whereArgs: <Object?>[personId]);
 
   @override
   Future<int> insert(ProductRequest request) =>
@@ -94,11 +90,7 @@ class SqfliteRequestRepository implements RequestRepository {
     return ProductRequest.fromMap(rows.first);
   }
 
-  Future<void> _setStatus(
-    Transaction txn,
-    int id,
-    RequestStatus status,
-  ) async {
+  Future<void> _setStatus(Transaction txn, int id, RequestStatus status) async {
     await txn.update(
       'requests',
       <String, Object?>{'status': status.value},

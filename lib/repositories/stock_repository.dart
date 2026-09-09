@@ -15,10 +15,8 @@ class SqfliteStockRepository implements StockRepository {
   final Database _db;
 
   @override
-  Future<List<StockAdjustment>> forProduct(int productId) => _load(
-    where: 'product_id = ?',
-    whereArgs: <Object?>[productId],
-  );
+  Future<List<StockAdjustment>> forProduct(int productId) =>
+      _load(where: 'product_id = ?', whereArgs: <Object?>[productId]);
 
   @override
   Future<List<StockAdjustment>> all() => _load();
@@ -33,10 +31,7 @@ class SqfliteStockRepository implements StockRepository {
   @override
   Future<int> insertWithExpense(StockAdjustment adjustment, Expense expense) {
     return _db.transaction<int>((Transaction txn) async {
-      final int id = await txn.insert(
-        'stock_adjustments',
-        adjustment.toMap(),
-      );
+      final int id = await txn.insert('stock_adjustments', adjustment.toMap());
       final Map<String, Object?> row = expense.toMap();
       row['stock_adjustment_id'] = id;
       await txn.insert('expenses', row);

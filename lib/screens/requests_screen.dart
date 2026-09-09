@@ -25,14 +25,15 @@ class RequestsScreen extends StatelessWidget {
       buildShoppingList: state.shoppingListFor,
       onAddRequest: () => openScreen(context, const RequestEditScreen()),
       onMarkOrdered: (List<ProductRequest> requests) async {
-        await state.markRequestsOrdered(
-          <int>[
-            for (final ProductRequest request in requests)
-              if (request.id != null) request.id!,
-          ],
-        );
+        await state.markRequestsOrdered(<int>[
+          for (final ProductRequest request in requests)
+            if (request.id != null) request.id!,
+        ]);
         if (!context.mounted) return;
-        say(context, '${countLabel(requests.length, 'request')} marked ordered.');
+        say(
+          context,
+          '${countLabel(requests.length, 'request')} marked ordered.',
+        );
       },
       onConvert: (ProductRequest request) => _convert(context, state, request),
       onCancel: (ProductRequest request) => _cancel(context, state, request),

@@ -65,7 +65,8 @@ class _DeliverFormState extends State<DeliverForm> {
   @override
   void initState() {
     super.initState();
-    _personId = widget.initialPersonId ??
+    _personId =
+        widget.initialPersonId ??
         (widget.people.isNotEmpty ? widget.people.first.id : null);
     if (widget.products.isNotEmpty) _addLine();
   }

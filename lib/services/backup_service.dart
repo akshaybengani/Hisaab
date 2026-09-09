@@ -89,130 +89,123 @@ const List<String> backupTableOrder = <String>[
 Set<String> _valuesOf(Iterable<String> values) => values.toSet();
 
 /// The expected shape of every table in the file.
-final Map<String, List<BackupField>> backupShape =
-    <String, List<BackupField>>{
-      'people': const <BackupField>[
-        BackupField('id', BackupValueKind.integer),
-        BackupField('name', BackupValueKind.text),
-        BackupField('phone', BackupValueKind.text, nullable: true),
-        BackupField('note', BackupValueKind.text, nullable: true),
-        BackupField('is_household', BackupValueKind.integer),
-        BackupField('archived', BackupValueKind.integer),
-      ],
-      'products': const <BackupField>[
-        BackupField('id', BackupValueKind.integer),
-        BackupField('name', BackupValueKind.text),
-        BackupField('unit_label', BackupValueKind.text),
-        BackupField('current_price_paise', BackupValueKind.integer),
-        BackupField('category', BackupValueKind.text, nullable: true),
-        BackupField('archived', BackupValueKind.integer),
-      ],
-      'product_price_history': const <BackupField>[
-        BackupField('id', BackupValueKind.integer),
-        BackupField('product_id', BackupValueKind.integer),
-        BackupField('price_paise', BackupValueKind.integer),
-        BackupField('effective_from', BackupValueKind.text),
-      ],
-      'expense_categories': const <BackupField>[
-        BackupField('id', BackupValueKind.integer),
-        BackupField('name', BackupValueKind.text),
-        BackupField('archived', BackupValueKind.integer),
-      ],
-      'purchases': const <BackupField>[
-        BackupField('id', BackupValueKind.integer),
-        BackupField('date', BackupValueKind.text),
-        BackupField('total_paid_paise', BackupValueKind.integer),
-        BackupField('vendor', BackupValueKind.text, nullable: true),
-        BackupField('note', BackupValueKind.text, nullable: true),
-      ],
-      'purchase_items': const <BackupField>[
-        BackupField('id', BackupValueKind.integer),
-        BackupField('purchase_id', BackupValueKind.integer),
-        BackupField('product_id', BackupValueKind.integer),
-        BackupField('qty', BackupValueKind.integer),
-        BackupField('unit_cost_paise', BackupValueKind.integer),
-      ],
-      'deliveries': const <BackupField>[
-        BackupField('id', BackupValueKind.integer),
-        BackupField('person_id', BackupValueKind.integer),
-        BackupField('date', BackupValueKind.text),
-        BackupField('for_member', BackupValueKind.text, nullable: true),
-        BackupField('note', BackupValueKind.text, nullable: true),
-      ],
-      'delivery_items': const <BackupField>[
-        BackupField('id', BackupValueKind.integer),
-        BackupField('delivery_id', BackupValueKind.integer),
-        BackupField('product_id', BackupValueKind.integer),
-        BackupField('qty', BackupValueKind.integer),
-        BackupField('unit_price_paise', BackupValueKind.integer),
-      ],
-      'requests': <BackupField>[
-        const BackupField('id', BackupValueKind.integer),
-        const BackupField('person_id', BackupValueKind.integer),
-        const BackupField('product_id', BackupValueKind.integer),
-        const BackupField('qty', BackupValueKind.integer),
-        BackupField(
-          'status',
-          BackupValueKind.text,
-          allowed: _valuesOf(
-            RequestStatus.values.map((RequestStatus s) => s.value),
-          ),
-        ),
-        const BackupField('created_at', BackupValueKind.text),
-        const BackupField('for_member', BackupValueKind.text, nullable: true),
-        const BackupField('note', BackupValueKind.text, nullable: true),
-      ],
-      'money_entries': <BackupField>[
-        const BackupField('id', BackupValueKind.integer),
-        const BackupField('person_id', BackupValueKind.integer),
-        const BackupField('date', BackupValueKind.text),
-        const BackupField('amount_paise', BackupValueKind.integer),
-        BackupField(
-          'direction',
-          BackupValueKind.text,
-          allowed: _valuesOf(
-            MoneyDirection.values.map((MoneyDirection d) => d.value),
-          ),
-        ),
-        BackupField(
-          'kind',
-          BackupValueKind.text,
-          allowed: _valuesOf(MoneyKind.values.map((MoneyKind k) => k.value)),
-        ),
-        const BackupField('method', BackupValueKind.text, nullable: true),
-        const BackupField('note', BackupValueKind.text, nullable: true),
-      ],
-      'stock_adjustments': <BackupField>[
-        const BackupField('id', BackupValueKind.integer),
-        const BackupField('product_id', BackupValueKind.integer),
-        const BackupField('qty_delta', BackupValueKind.integer),
-        BackupField(
-          'reason',
-          BackupValueKind.text,
-          allowed: _valuesOf(
-            StockReason.values.map((StockReason r) => r.value),
-          ),
-        ),
-        const BackupField('date', BackupValueKind.text),
-        const BackupField('note', BackupValueKind.text, nullable: true),
-      ],
-      'expenses': const <BackupField>[
-        BackupField('id', BackupValueKind.integer),
-        BackupField('date', BackupValueKind.text),
-        BackupField('amount_paise', BackupValueKind.integer),
-        BackupField('category_id', BackupValueKind.integer, nullable: true),
-        BackupField('note', BackupValueKind.text, nullable: true),
-        BackupField(
-          'stock_adjustment_id',
-          BackupValueKind.integer,
-          nullable: true,
-        ),
-      ],
-      'app_settings': const <BackupField>[
-        BackupField('key', BackupValueKind.text),
-        BackupField('value', BackupValueKind.text),
-      ],
-    };
+final Map<String, List<BackupField>> backupShape = <String, List<BackupField>>{
+  'people': const <BackupField>[
+    BackupField('id', BackupValueKind.integer),
+    BackupField('name', BackupValueKind.text),
+    BackupField('phone', BackupValueKind.text, nullable: true),
+    BackupField('note', BackupValueKind.text, nullable: true),
+    BackupField('is_household', BackupValueKind.integer),
+    BackupField('archived', BackupValueKind.integer),
+  ],
+  'products': const <BackupField>[
+    BackupField('id', BackupValueKind.integer),
+    BackupField('name', BackupValueKind.text),
+    BackupField('unit_label', BackupValueKind.text),
+    BackupField('current_price_paise', BackupValueKind.integer),
+    BackupField('category', BackupValueKind.text, nullable: true),
+    BackupField('archived', BackupValueKind.integer),
+  ],
+  'product_price_history': const <BackupField>[
+    BackupField('id', BackupValueKind.integer),
+    BackupField('product_id', BackupValueKind.integer),
+    BackupField('price_paise', BackupValueKind.integer),
+    BackupField('effective_from', BackupValueKind.text),
+  ],
+  'expense_categories': const <BackupField>[
+    BackupField('id', BackupValueKind.integer),
+    BackupField('name', BackupValueKind.text),
+    BackupField('archived', BackupValueKind.integer),
+  ],
+  'purchases': const <BackupField>[
+    BackupField('id', BackupValueKind.integer),
+    BackupField('date', BackupValueKind.text),
+    BackupField('total_paid_paise', BackupValueKind.integer),
+    BackupField('vendor', BackupValueKind.text, nullable: true),
+    BackupField('note', BackupValueKind.text, nullable: true),
+  ],
+  'purchase_items': const <BackupField>[
+    BackupField('id', BackupValueKind.integer),
+    BackupField('purchase_id', BackupValueKind.integer),
+    BackupField('product_id', BackupValueKind.integer),
+    BackupField('qty', BackupValueKind.integer),
+    BackupField('unit_cost_paise', BackupValueKind.integer),
+  ],
+  'deliveries': const <BackupField>[
+    BackupField('id', BackupValueKind.integer),
+    BackupField('person_id', BackupValueKind.integer),
+    BackupField('date', BackupValueKind.text),
+    BackupField('for_member', BackupValueKind.text, nullable: true),
+    BackupField('note', BackupValueKind.text, nullable: true),
+  ],
+  'delivery_items': const <BackupField>[
+    BackupField('id', BackupValueKind.integer),
+    BackupField('delivery_id', BackupValueKind.integer),
+    BackupField('product_id', BackupValueKind.integer),
+    BackupField('qty', BackupValueKind.integer),
+    BackupField('unit_price_paise', BackupValueKind.integer),
+  ],
+  'requests': <BackupField>[
+    const BackupField('id', BackupValueKind.integer),
+    const BackupField('person_id', BackupValueKind.integer),
+    const BackupField('product_id', BackupValueKind.integer),
+    const BackupField('qty', BackupValueKind.integer),
+    BackupField(
+      'status',
+      BackupValueKind.text,
+      allowed: _valuesOf(
+        RequestStatus.values.map((RequestStatus s) => s.value),
+      ),
+    ),
+    const BackupField('created_at', BackupValueKind.text),
+    const BackupField('for_member', BackupValueKind.text, nullable: true),
+    const BackupField('note', BackupValueKind.text, nullable: true),
+  ],
+  'money_entries': <BackupField>[
+    const BackupField('id', BackupValueKind.integer),
+    const BackupField('person_id', BackupValueKind.integer),
+    const BackupField('date', BackupValueKind.text),
+    const BackupField('amount_paise', BackupValueKind.integer),
+    BackupField(
+      'direction',
+      BackupValueKind.text,
+      allowed: _valuesOf(
+        MoneyDirection.values.map((MoneyDirection d) => d.value),
+      ),
+    ),
+    BackupField(
+      'kind',
+      BackupValueKind.text,
+      allowed: _valuesOf(MoneyKind.values.map((MoneyKind k) => k.value)),
+    ),
+    const BackupField('method', BackupValueKind.text, nullable: true),
+    const BackupField('note', BackupValueKind.text, nullable: true),
+  ],
+  'stock_adjustments': <BackupField>[
+    const BackupField('id', BackupValueKind.integer),
+    const BackupField('product_id', BackupValueKind.integer),
+    const BackupField('qty_delta', BackupValueKind.integer),
+    BackupField(
+      'reason',
+      BackupValueKind.text,
+      allowed: _valuesOf(StockReason.values.map((StockReason r) => r.value)),
+    ),
+    const BackupField('date', BackupValueKind.text),
+    const BackupField('note', BackupValueKind.text, nullable: true),
+  ],
+  'expenses': const <BackupField>[
+    BackupField('id', BackupValueKind.integer),
+    BackupField('date', BackupValueKind.text),
+    BackupField('amount_paise', BackupValueKind.integer),
+    BackupField('category_id', BackupValueKind.integer, nullable: true),
+    BackupField('note', BackupValueKind.text, nullable: true),
+    BackupField('stock_adjustment_id', BackupValueKind.integer, nullable: true),
+  ],
+  'app_settings': const <BackupField>[
+    BackupField('key', BackupValueKind.text),
+    BackupField('value', BackupValueKind.text),
+  ],
+};
 
 /// A validated file, ready to be written. Nothing constructs one of these
 /// until every row in the file has passed.
@@ -307,15 +300,11 @@ class BackupService {
   static _CheckedBook _check(String source) {
     final Object? decoded = _decode(source);
     if (decoded is! Map<String, Object?>) {
-      throw const BackupFormatException(
-        'the file should hold one JSON object',
-      );
+      throw const BackupFormatException('the file should hold one JSON object');
     }
 
     if (decoded['format'] != format) {
-      throw const BackupFormatException(
-        'this is not a Hisaab backup file',
-      );
+      throw const BackupFormatException('this is not a Hisaab backup file');
     }
 
     final Object? version = decoded['schema_version'];
@@ -336,8 +325,9 @@ class BackupService {
     }
 
     final Object? stamp = decoded['generated_at'];
-    final DateTime? generatedAt =
-        stamp is String ? DateTime.tryParse(stamp) : null;
+    final DateTime? generatedAt = stamp is String
+        ? DateTime.tryParse(stamp)
+        : null;
     if (generatedAt == null) {
       throw const BackupFormatException(
         'generated_at is missing or is not a date',

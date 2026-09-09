@@ -164,10 +164,8 @@ void main() {
     ),
     'stock history, populated': () =>
         StockHistoryView(product: kShake, movements: sampleMovements()),
-    'stock history, empty': () => const StockHistoryView(
-      product: kShake,
-      movements: <StockMovement>[],
-    ),
+    'stock history, empty': () =>
+        const StockHistoryView(product: kShake, movements: <StockMovement>[]),
     'purchases, populated': () => PurchasesView(
       purchases: samplePurchases(),
       productsById: kProductsById,

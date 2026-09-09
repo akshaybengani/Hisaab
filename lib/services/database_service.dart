@@ -285,7 +285,8 @@ abstract final class DatabaseService {
       columns: <String>['version'],
       orderBy: 'version ASC',
     );
-    return rows.map((Map<String, Object?> row) => row['version']! as int)
+    return rows
+        .map((Map<String, Object?> row) => row['version']! as int)
         .toList();
   }
 }

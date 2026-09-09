@@ -95,7 +95,10 @@ class StockScreen extends StatelessWidget {
       countedOnHand: counted,
     );
     if (delta == null) {
-      say(context, 'The difference could not be worked out, so nothing was written.');
+      say(
+        context,
+        'The difference could not be worked out, so nothing was written.',
+      );
       return;
     }
     if (delta == 0) {

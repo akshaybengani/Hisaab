@@ -5,7 +5,10 @@ import 'package:intl/intl.dart';
 /// rounding rule can never differ between two screens.
 abstract final class Money {
   static final NumberFormat _grouped = NumberFormat('#,##0', 'en_IN');
-  static final NumberFormat _groupedWithPaise = NumberFormat('#,##0.00', 'en_IN');
+  static final NumberFormat _groupedWithPaise = NumberFormat(
+    '#,##0.00',
+    'en_IN',
+  );
 
   /// Formats paise for display, grouping thousands [per std-24 cl-22] and
   /// hiding a zero paise part, so 205000 reads "2,050" and 205050 reads

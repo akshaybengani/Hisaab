@@ -36,10 +36,9 @@ class SqfliteSettingsRepository implements SettingsRepository {
 
   @override
   Future<void> write(String key, String value) async {
-    await _db.insert(
-      'app_settings',
-      <String, Object?>{'key': key, 'value': value},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert('app_settings', <String, Object?>{
+      'key': key,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }

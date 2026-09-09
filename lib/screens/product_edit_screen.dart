@@ -16,11 +16,10 @@ class ProductEditScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppState state = context.watch<AppState>();
     final Product? product = this.product;
-    final List<String> knownCategories =
-        <String>{
-          for (final Product p in state.products)
-            if (p.category != null && p.category!.isNotEmpty) p.category!,
-        }.toList(growable: false)..sort();
+    final List<String> knownCategories = <String>{
+      for (final Product p in state.products)
+        if (p.category != null && p.category!.isNotEmpty) p.category!,
+    }.toList(growable: false)..sort();
 
     return Scaffold(
       appBar: AppBar(

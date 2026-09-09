@@ -156,8 +156,7 @@ class _SettingsViewState extends State<SettingsView> {
         helperText: field.helper.isEmpty ? null : field.helper,
         helperMaxLines: 2,
       ),
-      onChanged: (String value) =>
-          unawaited(widget.onWrite(field.key, value)),
+      onChanged: (String value) => unawaited(widget.onWrite(field.key, value)),
     ),
   );
 
@@ -172,8 +171,7 @@ class _SettingsViewState extends State<SettingsView> {
       padding: const EdgeInsets.only(bottom: 96),
       children: <Widget>[
         const SectionHeader(title: 'Statement PDF'),
-        for (final SettingField field in SettingsView.pdfFields)
-          _field(field),
+        for (final SettingField field in SettingsView.pdfFields) _field(field),
         const SectionHeader(title: 'Messages'),
         for (final SettingField field in SettingsView.templateFields)
           _field(field),

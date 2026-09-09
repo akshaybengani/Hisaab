@@ -14,10 +14,8 @@ class SqfliteDeliveryRepository implements DeliveryRepository {
   final Database _db;
 
   @override
-  Future<List<DeliveryWithItems>> forPerson(int personId) => _load(
-    where: 'person_id = ?',
-    whereArgs: <Object?>[personId],
-  );
+  Future<List<DeliveryWithItems>> forPerson(int personId) =>
+      _load(where: 'person_id = ?', whereArgs: <Object?>[personId]);
 
   @override
   Future<List<DeliveryWithItems>> all() => _load();

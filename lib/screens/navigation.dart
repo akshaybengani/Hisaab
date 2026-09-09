@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 /// analyzer treats as an error in this project.
 void openScreen(BuildContext context, Widget screen) {
   unawaited(
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (BuildContext context) => screen),
-    ),
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (BuildContext context) => screen)),
   );
 }
 

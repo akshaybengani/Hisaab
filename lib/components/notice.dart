@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 /// A short standing message, for the case where a figure could not be worked
 /// out. Never used to say "nothing here": that is [EmptyState]'s job.
 class Notice extends StatelessWidget {
-  const Notice({required this.message, this.icon = Icons.error_outline, super.key});
+  const Notice({
+    required this.message,
+    this.icon = Icons.error_outline,
+    super.key,
+  });
 
   final String message;
   final IconData icon;

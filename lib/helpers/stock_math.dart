@@ -159,9 +159,8 @@ abstract final class StockMath {
         ),
     ];
     lines.sort(
-      (ShoppingListLine a, ShoppingListLine b) => a.productName
-          .toLowerCase()
-          .compareTo(b.productName.toLowerCase()),
+      (ShoppingListLine a, ShoppingListLine b) =>
+          a.productName.toLowerCase().compareTo(b.productName.toLowerCase()),
     );
     return lines;
   }

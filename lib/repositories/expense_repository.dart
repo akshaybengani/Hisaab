@@ -31,7 +31,8 @@ class SqfliteExpenseRepository implements ExpenseRepository {
   }
 
   @override
-  Future<int> insert(Expense expense) => _db.insert('expenses', expense.toMap());
+  Future<int> insert(Expense expense) =>
+      _db.insert('expenses', expense.toMap());
 
   @override
   Future<void> update(Expense expense) async {
@@ -53,7 +54,9 @@ class SqfliteExpenseRepository implements ExpenseRepository {
   }
 
   @override
-  Future<List<ExpenseCategory>> categories({bool includeArchived = false}) async {
+  Future<List<ExpenseCategory>> categories({
+    bool includeArchived = false,
+  }) async {
     final List<Map<String, Object?>> rows = await _db.query(
       'expense_categories',
       where: includeArchived ? null : 'archived = 0',
@@ -113,10 +116,7 @@ class SqfliteExpenseRepository implements ExpenseRepository {
     );
   }
 
-  Future<List<Expense>> _load({
-    String? where,
-    List<Object?>? whereArgs,
-  }) async {
+  Future<List<Expense>> _load({String? where, List<Object?>? whereArgs}) async {
     final List<Map<String, Object?>> rows = await _db.query(
       'expenses',
       where: where,

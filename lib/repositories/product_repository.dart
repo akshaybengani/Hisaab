@@ -38,7 +38,8 @@ class SqfliteProductRepository implements ProductRepository {
   }
 
   @override
-  Future<int> insert(Product product) => _db.insert('products', product.toMap());
+  Future<int> insert(Product product) =>
+      _db.insert('products', product.toMap());
 
   /// Reads the stored price, writes the row, and appends to the price history
   /// only where the two prices differ. Existing delivery lines are never
