@@ -44,8 +44,7 @@ class PersonDetailView extends StatelessWidget {
           onShareText: onShareText,
           onSharePdf: onSharePdf,
         ),
-        if (!statement.products.isEmpty)
-          _GroupCard(group: statement.products),
+        if (!statement.products.isEmpty) _GroupCard(group: statement.products),
         if (!statement.cash.isEmpty) _GroupCard(group: statement.cash),
         if (statement.products.isEmpty && statement.cash.isEmpty)
           const Padding(
@@ -251,7 +250,10 @@ class _StatementRow extends StatelessWidget {
                 Text(parts.join(', '), style: text.bodySmall),
                 if (line.settlement != null) ...<Widget>[
                   const SizedBox(height: 4),
-                  _SettlementChip(state: line.settlement!),
+                  _SettlementChip(
+                    state: line.settlement!,
+                    concededPaise: line.concededPaise,
+                  ),
                 ],
               ],
             ),
@@ -267,10 +269,16 @@ class _StatementRow extends StatelessWidget {
   }
 }
 
+/// The state of one delivery, as a chip.
+///
+/// A settled delivery names what was conceded, because that is the point of
+/// keeping it apart from paid: the chip must not claim a payment that never
+/// happened. See dec-15, verified by ac-43.
 class _SettlementChip extends StatelessWidget {
-  const _SettlementChip({required this.state});
+  const _SettlementChip({required this.state, this.concededPaise = 0});
 
   final SettlementState state;
+  final int concededPaise;
 
   @override
   Widget build(BuildContext context) {
@@ -279,6 +287,11 @@ class _SettlementChip extends StatelessWidget {
         switch (state) {
           SettlementState.paid => (
             'Paid',
+            colours.secondaryContainer,
+            colours.onSecondaryContainer,
+          ),
+          SettlementState.settled => (
+            'Settled, ${Money.formatWithSymbol(concededPaise)} discount',
             colours.secondaryContainer,
             colours.onSecondaryContainer,
           ),
@@ -301,9 +314,7 @@ class _SettlementChip extends StatelessWidget {
       ),
       child: Text(
         look.$1,
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(color: look.$3),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: look.$3),
       ),
     );
   }

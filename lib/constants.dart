@@ -36,12 +36,15 @@ enum MoneyKind {
   /// Money coming back against a cash loan.
   repayment('repayment', settlesLoans: true),
 
-  /// A deliberate round-off, so the recorded payment stays equal to the cash
-  /// that actually changed hands. See dec-13.
-  adjustment('adjustment'),
+  /// A concession made when the cash was counted: a discount given, or change
+  /// kept. It closes the difference so the recorded payment stays equal to
+  /// the cash that actually changed hands, and it settles the deliveries it
+  /// covers. See dec-13 and dec-15.
+  adjustment('adjustment', settlesDeliveries: true),
 
-  /// A balance the owner has decided to stop chasing.
-  writeOff('write_off');
+  /// A balance the owner has decided to stop chasing. It settles what it
+  /// covers, because the delivery is closed either way. See dec-15.
+  writeOff('write_off', settlesDeliveries: true);
 
   const MoneyKind(
     this.value, {
@@ -113,7 +116,22 @@ enum RequestStatus {
 
 /// How much of one delivery a person has covered. Computed on read by
 /// allocating their payments oldest first, and never stored. See dec-1.
-enum SettlementState { paid, partlyPaid, unpaid }
+enum SettlementState {
+  /// Covered in full, every paisa of it by money.
+  paid,
+
+  /// Closed in full, but part of it was conceded rather than paid: a discount
+  /// given, change kept, or a balance written off. Kept apart from [paid] so
+  /// a screen never claims a payment that never happened, and so a zero
+  /// balance never sits beside a line reading unpaid. See dec-15.
+  settled,
+
+  /// Some of it is covered and the rest is still owed.
+  partlyPaid,
+
+  /// Nothing is covered yet.
+  unpaid,
+}
 
 /// Keys into the `app_settings` table. Values are always stored as text.
 abstract final class SettingKeys {

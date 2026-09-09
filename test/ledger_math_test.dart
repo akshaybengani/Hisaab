@@ -564,11 +564,12 @@ void main() {
     );
 
     acTest(
-      'a write off zeroes the balance without marking a delivery paid',
-      <String>['ac-9'],
+      'a write off closes a delivery as settled rather than paid',
+      <String>['ac-9', 'ac-42'],
       () {
-        // The person never paid, so the delivery still reads unpaid. The owner
-        // simply stopped chasing it, and that shows as its own statement line.
+        // The person never paid, so nothing may read paid. The delivery is
+        // closed all the same, and the state says which of the two it was, so
+        // a zero balance never sits beside a line reading unpaid. See dec-15.
         final List<DeliveryWithItems> deliveries = <DeliveryWithItems>[
           sep7Delivery,
         ];
@@ -578,8 +579,9 @@ void main() {
 
         expect(LedgerMath.productBalance(deliveries, entries), 0);
         expect(LedgerMath.allocate(deliveries, entries), <int, SettlementState>{
-          2: SettlementState.unpaid,
+          2: SettlementState.settled,
         });
+        expect(LedgerMath.concededPaise(2, deliveries, entries), 95000);
       },
     );
 
@@ -611,6 +613,145 @@ void main() {
         });
       },
     );
+
+    acTest(
+      'a payment plus a discount closes the delivery as settled',
+      <String>['ac-42'],
+      () {
+        // 950 owed, 900 handed over, 50 given as a discount. The balance is
+        // zero, so the line must not read unpaid, and the person did not pay
+        // the last 50, so it must not read paid either. See dec-15.
+        final List<DeliveryWithItems> deliveries = <DeliveryWithItems>[
+          sep7Delivery,
+        ];
+        final List<MoneyEntry> entries = <MoneyEntry>[
+          money(
+            date: sep8,
+            amountPaise: 90000,
+            kind: MoneyKind.paymentReceived,
+          ),
+          money(
+            id: 2,
+            date: sep8,
+            amountPaise: 5000,
+            kind: MoneyKind.adjustment,
+          ),
+        ];
+
+        expect(LedgerMath.allocate(deliveries, entries), <int, SettlementState>{
+          2: SettlementState.settled,
+        });
+        expect(LedgerMath.coveredPaise(2, deliveries, entries), 95000);
+        expect(LedgerMath.concededPaise(2, deliveries, entries), 5000);
+        expect(LedgerMath.productBalance(deliveries, entries), 0);
+      },
+    );
+
+    acTest(
+      'a delivery covered entirely by money reads paid, not settled',
+      <String>['ac-42'],
+      () {
+        final List<DeliveryWithItems> deliveries = <DeliveryWithItems>[
+          sep7Delivery,
+        ];
+        final List<MoneyEntry> entries = <MoneyEntry>[
+          money(
+            date: sep8,
+            amountPaise: 95000,
+            kind: MoneyKind.paymentReceived,
+          ),
+        ];
+
+        expect(LedgerMath.allocate(deliveries, entries), <int, SettlementState>{
+          2: SettlementState.paid,
+        });
+        expect(LedgerMath.concededPaise(2, deliveries, entries), 0);
+      },
+    );
+
+    acTest(
+      'a payment short of the bill with no discount stays partly paid',
+      <String>['ac-42'],
+      () {
+        final List<DeliveryWithItems> deliveries = <DeliveryWithItems>[
+          sep7Delivery,
+        ];
+        final List<MoneyEntry> entries = <MoneyEntry>[
+          money(
+            date: sep8,
+            amountPaise: 90000,
+            kind: MoneyKind.paymentReceived,
+          ),
+        ];
+
+        expect(LedgerMath.allocate(deliveries, entries), <int, SettlementState>{
+          2: SettlementState.partlyPaid,
+        });
+        expect(LedgerMath.concededPaise(2, deliveries, entries), 0);
+        expect(
+          LedgerMath.productBalance(deliveries, entries),
+          5000,
+          reason: 'nothing was conceded, so 50 is still owed',
+        );
+      },
+    );
+
+    acTest(
+      'money is consumed before a discount, so the earlier delivery reads paid',
+      <String>['ac-42'],
+      () {
+        // 4,100 then 950, with 4,100 paid and 950 conceded. The first was
+        // covered by cash and the second was not, and each says so.
+        final List<DeliveryWithItems> deliveries = <DeliveryWithItems>[
+          sep3Delivery,
+          sep7Delivery,
+        ];
+        final List<MoneyEntry> entries = <MoneyEntry>[
+          money(
+            date: sep8,
+            amountPaise: 410000,
+            kind: MoneyKind.paymentReceived,
+          ),
+          money(
+            id: 2,
+            date: sep9,
+            amountPaise: 95000,
+            kind: MoneyKind.adjustment,
+          ),
+        ];
+
+        expect(LedgerMath.allocate(deliveries, entries), <int, SettlementState>{
+          1: SettlementState.paid,
+          2: SettlementState.settled,
+        });
+        expect(LedgerMath.concededPaise(1, deliveries, entries), 0);
+        expect(LedgerMath.concededPaise(2, deliveries, entries), 95000);
+      },
+    );
+
+    test('change kept leaves the delivery paid rather than settled', () {
+      // She was handed 1,000 against a 950 bill and kept the 50. Every paisa
+      // of the delivery was covered by cash, so nothing was conceded to her.
+      final List<DeliveryWithItems> deliveries = <DeliveryWithItems>[
+        sep7Delivery,
+      ];
+      final List<MoneyEntry> entries = <MoneyEntry>[
+        money(date: sep8, amountPaise: 100000, kind: MoneyKind.paymentReceived),
+        money(
+          id: 2,
+          date: sep8,
+          amountPaise: 5000,
+          kind: MoneyKind.adjustment,
+          direction: MoneyDirection.outgoing,
+        ),
+      ];
+
+      expect(LedgerMath.allocate(deliveries, entries), <int, SettlementState>{
+        2: SettlementState.paid,
+      });
+      expect(LedgerMath.concededPaise(2, deliveries, entries), 0);
+      expect(LedgerMath.productBalance(deliveries, entries), 0);
+    });
 
     test('a delivery with no items reads paid', () {
       expect(
@@ -860,7 +1001,7 @@ void main() {
     });
 
     acTest(
-      'a round-off is its own line rather than a smaller delivery',
+      'a discount is its own line rather than a smaller delivery',
       <String>['ac-37', 'ac-39'],
       () {
         final Statement statement = statementOf(
@@ -882,10 +1023,7 @@ void main() {
 
         expect(statement.products.lines.length, 3);
         expect(statement.products.lines.first.amountPaise, 95000);
-        expect(
-          statement.products.lines.last.description,
-          'Round-off adjustment',
-        );
+        expect(statement.products.lines.last.description, 'Discount given');
         expect(statement.products.lines.last.amountPaise, -5000);
         expect(statement.products.subtotalPaise, 0);
         expect(statement.isSettled, isTrue);
@@ -927,6 +1065,31 @@ void main() {
       expect(
         statement.cash.lines.map((StatementLine l) => l.amountPaise).toList(),
         <int>[3000, -4000, -5000],
+      );
+    });
+
+    test('an adjustment reads by the direction it went', () {
+      // Money in means she gave a discount, money out means she kept the
+      // change. One kind, two acts, and the statement names which.
+      final Statement statement = statementOf(
+        deliveries: const <DeliveryWithItems>[],
+        entries: <MoneyEntry>[
+          money(date: sep8, amountPaise: 5000, kind: MoneyKind.adjustment),
+          money(
+            id: 2,
+            date: sep9,
+            amountPaise: 5000,
+            kind: MoneyKind.adjustment,
+            direction: MoneyDirection.outgoing,
+          ),
+        ],
+      );
+
+      expect(
+        statement.products.lines
+            .map((StatementLine l) => l.description)
+            .toList(),
+        <String>['Discount given', 'Change kept'],
       );
     });
 

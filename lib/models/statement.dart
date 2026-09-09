@@ -9,6 +9,7 @@ class StatementLine {
     required this.amountPaise,
     this.forMember,
     this.settlement,
+    this.concededPaise = 0,
     this.detail,
   });
 
@@ -23,6 +24,11 @@ class StatementLine {
   /// Set on delivery lines only, computed by allocating payments oldest first
   /// and never stored. See spec-27 dec-1.
   final SettlementState? settlement;
+
+  /// How much of a settled delivery was conceded rather than paid, so the
+  /// renderer can name the figure instead of hiding it behind a label. Zero
+  /// on every line that was covered by money alone. See dec-15.
+  final int concededPaise;
 
   /// A second line of context, such as "2 Formula 1 at 2,050".
   final String? detail;

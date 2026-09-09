@@ -10,9 +10,10 @@ import 'money_field.dart';
 /// Adding a purchase.
 ///
 /// The total paid is its own field, never the sum of the lines, because
-/// shipping and offers make the two legitimately differ. The gap is shown as
-/// absorbed by the owner, and writing it to expenses is offered rather than
-/// done. See spec-27 dec-7.
+/// shipping and offers make the two legitimately differ. The gap reads both
+/// ways: paying over the lines is money the owner absorbed, and paying under
+/// them is a discount she received. Only the first is offered to expenses,
+/// because a saving is not a cost. See spec-27 dec-7.
 class PurchaseForm extends StatefulWidget {
   const PurchaseForm({
     required this.products,
@@ -25,7 +26,8 @@ class PurchaseForm extends StatefulWidget {
   final List<Product> products;
   final List<ExpenseCategory> categories;
 
-  /// [absorbedExpense] is only ever non-null where the user ticked the offer.
+  /// [absorbedExpense] is only ever non-null where the user ticked the offer,
+  /// which is offered only where the total paid ran over the lines.
   final void Function(
     Purchase purchase,
     List<PurchaseItem> items, {
@@ -128,7 +130,7 @@ class _PurchaseFormState extends State<PurchaseForm> {
             unitCostPaise: line.unitCostPaise,
           ),
       ],
-      absorbedExpense: _writeGapToExpenses && gap.hasGap
+      absorbedExpense: _writeGapToExpenses && gap.isAbsorbed
           ? Expense(
               id: null,
               date: _date,
@@ -284,7 +286,9 @@ class _PurchaseFormState extends State<PurchaseForm> {
                 children: <Widget>[
                   Row(
                     children: <Widget>[
-                      Expanded(child: Text('Lines add up to', style: text.bodyMedium)),
+                      Expanded(
+                        child: Text('Lines add up to', style: text.bodyMedium),
+                      ),
                       Text(
                         Money.formatWithSymbol(gap.lineTotalPaise),
                         style: text.bodyMedium,
@@ -294,7 +298,9 @@ class _PurchaseFormState extends State<PurchaseForm> {
                   const SizedBox(height: 4),
                   Row(
                     children: <Widget>[
-                      Expanded(child: Text('Total paid', style: text.bodyMedium)),
+                      Expanded(
+                        child: Text('Total paid', style: text.bodyMedium),
+                      ),
                       Text(
                         Money.formatWithSymbol(gap.totalPaidPaise),
                         style: text.bodyMedium,
@@ -304,11 +310,11 @@ class _PurchaseFormState extends State<PurchaseForm> {
                   if (gap.hasGap) ...<Widget>[
                     const Divider(),
                     Text(
-                      gap.absorbedPaise > 0
-                          ? 'You absorbed ${Money.formatWithSymbol(gap.absorbedPaise)}, '
-                                'so no unit price changes.'
-                          : 'An offer took ${Money.formatWithSymbol(gap.absorbedPaise.abs())} '
-                                'off, so no unit price changes.',
+                      gap.isAbsorbed
+                          ? 'You absorbed ${Money.formatWithSymbol(gap.absorbedPaise)} '
+                                'over the lines, so no unit price changes.'
+                          : 'Discount received ${Money.formatWithSymbol(gap.absorbedPaise.abs())} '
+                                'on this order, so no unit price changes.',
                       style: text.bodyMedium,
                     ),
                   ],
@@ -316,7 +322,9 @@ class _PurchaseFormState extends State<PurchaseForm> {
               ),
             ),
           ),
-          if (gap.hasGap) ...<Widget>[
+          // Offered only where the gap cost her money. Writing a discount she
+          // received into expenses would record a saving as a cost.
+          if (gap.isAbsorbed) ...<Widget>[
             const SizedBox(height: 8),
             CheckboxListTile(
               value: _writeGapToExpenses,

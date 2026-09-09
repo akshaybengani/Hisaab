@@ -2,13 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hisaab/components/collect_view.dart';
 import 'package:hisaab/constants.dart';
+import 'package:hisaab/models/models.dart';
+import 'package:hisaab/providers/app_state.dart';
 import 'package:hisaab/providers/view_models.dart';
+import 'package:hisaab/screens/collect_screen.dart';
 
+import 'support/fake_repositories.dart';
 import 'support/harness.dart';
+import 'support/memex_ac.dart';
 
 /// The collect screen is where a rounding rule would do the most damage, so
 /// the rules it follows are asserted directly.
+///
+/// The words matter as much as the arithmetic. A remainder the person did not
+/// hand over is a discount given, and money handed over above the balance is
+/// change kept. Neither is a debt written off. See dec-13.
 void main() {
+  useAcEmission('test/collect_test.dart');
+
   group('CollectPlan', () {
     test('asks about the pool only where both carry a balance', () {
       const CollectPlan both = CollectPlan(
@@ -52,11 +63,11 @@ void main() {
         pool: SettlementPool.products,
       );
       expect(plan.remainderPaise, 5000);
-      expect(plan.canWriteOff, isTrue);
-      expect(plan.canAdjust, isFalse);
+      expect(plan.canGiveDiscount, isTrue);
+      expect(plan.canKeepChange, isFalse);
     });
 
-    test('treats an overpayment as a round off, not a write off', () {
+    test('treats an overpayment as change kept, not a discount given', () {
       const CollectPlan plan = CollectPlan(
         productDuePaise: 205000,
         cashDuePaise: 0,
@@ -64,8 +75,8 @@ void main() {
         pool: SettlementPool.products,
       );
       expect(plan.remainderPaise, -5000);
-      expect(plan.canWriteOff, isFalse);
-      expect(plan.canAdjust, isTrue);
+      expect(plan.canGiveDiscount, isFalse);
+      expect(plan.canKeepChange, isTrue);
     });
 
     test('offers nothing to clear where the payment settles it exactly', () {
@@ -76,8 +87,8 @@ void main() {
         pool: SettlementPool.products,
       );
       expect(plan.hasRemainder, isFalse);
-      expect(plan.canWriteOff, isFalse);
-      expect(plan.canAdjust, isFalse);
+      expect(plan.canGiveDiscount, isFalse);
+      expect(plan.canKeepChange, isFalse);
     });
   });
 
@@ -145,7 +156,7 @@ void main() {
       await tester.enterText(find.byType(TextFormField).first, '2000');
       await tester.pump();
 
-      expect(find.text('Write off ₹50'), findsOneWidget);
+      expect(find.text('Give ₹50 discount'), findsOneWidget);
       expect(find.text('₹50 still owed after this.'), findsOneWidget);
     });
 
@@ -178,9 +189,87 @@ void main() {
       expect(recorded?.remainderPaise, 5000);
       expect(cleared, isFalse, reason: 'nothing is rounded on its own');
 
-      await tapAfterScroll(tester, find.text('Write off ₹50'));
+      await tapAfterScroll(tester, find.text('Give ₹50 discount'));
       await tapAfterScroll(tester, find.text('Record payment'));
       expect(cleared, isTrue);
     });
+
+    testWidgets('an overpayment offers to keep the change, not a discount', (
+      WidgetTester tester,
+    ) async {
+      await pumpOnSmallPhone(
+        tester,
+        Scaffold(
+          body: CollectView(
+            person: kMeera,
+            productDuePaise: 205000,
+            cashDuePaise: 0,
+            onRecord: (CollectPlan plan, {required bool clearRemainder}) {},
+          ),
+        ),
+        brightness: Brightness.light,
+      );
+
+      await tester.enterText(find.byType(TextFormField).first, '2100');
+      await tester.pump();
+
+      expect(find.text('Keep ₹50 change'), findsOneWidget);
+      expect(find.text('Give ₹50 discount'), findsNothing);
+    });
+  });
+
+  group('CollectScreen', () {
+    /// Verifies ac-37: the concession is its own entry for exactly the
+    /// remainder, and the payment keeps the figure the user typed.
+    acTestWidgets(
+      'a discount given writes an adjustment for exactly the remainder',
+      <String>['ac-37'],
+      (WidgetTester tester) async {
+        final FakeRepositories repos = FakeRepositories.seeded();
+        final AppState state = AppState(repos);
+        await state.load();
+
+        // Meera carries one delivery of 4,100 against a payment of 2,000.
+        expect(state.productDueFor(1), 210000);
+
+        await pumpOnSmallPhone(
+          tester,
+          const CollectScreen(person: kMeera),
+          brightness: Brightness.light,
+          state: state,
+        );
+
+        await tester.enterText(find.byType(TextFormField).first, '2000');
+        await tester.pump();
+        await tapAfterScroll(tester, find.text('Give ₹100 discount'));
+        await tapAfterScroll(tester, find.text('Record payment'));
+        await tester.pumpAndSettle();
+
+        final List<MoneyEntry> added = repos.money.rows
+            .where((MoneyEntry e) => (e.id ?? 0) > 1)
+            .toList();
+        expect(added.length, 2, reason: 'the payment and the discount');
+
+        final MoneyEntry payment = added.first;
+        expect(payment.kind, MoneyKind.paymentReceived);
+        expect(
+          payment.amountPaise,
+          200000,
+          reason: 'the payment stays equal to the cash that was handed over',
+        );
+
+        final MoneyEntry discount = added.last;
+        expect(
+          discount.kind,
+          MoneyKind.adjustment,
+          reason: 'a concession at the point of collection is not a write off',
+        );
+        expect(discount.amountPaise, 10000);
+        expect(discount.direction, MoneyDirection.incoming);
+        expect(discount.note, 'Discount given on collection');
+
+        expect(state.productDueFor(1), 0);
+      },
+    );
   });
 }

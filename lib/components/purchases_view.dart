@@ -106,7 +106,7 @@ class _AbsorbedLine extends StatelessWidget {
           child: Text(
             paise > 0
                 ? 'You absorbed ${Money.formatWithSymbol(paise)} over the lines.'
-                : 'An offer took ${Money.formatWithSymbol(paise.abs())} off the lines.',
+                : 'Discount received ${Money.formatWithSymbol(paise.abs())} on this order.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ),

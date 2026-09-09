@@ -28,9 +28,7 @@ Future<void> pumpOnSmallPhone(
   addTearDown(tester.view.reset);
 
   final Widget app = MaterialApp(
-    theme: brightness == Brightness.light
-        ? AppTheme.light()
-        : AppTheme.dark(),
+    theme: brightness == Brightness.light ? AppTheme.light() : AppTheme.dark(),
     home: child,
   );
 
@@ -98,11 +96,7 @@ Future<AppState> loadedState({bool seeded = true}) async {
 // Hand built, so these tests keep passing whatever the ledger and stock
 // arithmetic do. Nothing here calls LedgerMath or StockMath.
 
-const Person kMeera = Person(
-  id: 1,
-  name: 'Meera Joshi',
-  phone: '9876500001',
-);
+const Person kMeera = Person(id: 1, name: 'Meera Joshi', phone: '9876500001');
 const Person kSunita = Person(id: 2, name: 'Sunita Rao', isHousehold: true);
 
 const Product kShake = Product(
@@ -133,6 +127,39 @@ List<PersonBalance> sampleBalances() => <PersonBalance>[
     lastActivity: DateTime(2026, 8, 30),
   ),
 ];
+
+/// A statement whose one delivery was closed by a payment plus a discount.
+///
+/// Hand built like the rest of these samples, so the render test stays honest
+/// about what it is checking: the wording, not the allocation. See dec-15.
+Statement settledStatement() => Statement(
+  person: kMeera,
+  products: StatementGroup(
+    title: 'Product dues',
+    lines: <StatementLine>[
+      StatementLine(
+        date: DateTime(2026, 9, 2),
+        description: 'Formula 1 shake',
+        amountPaise: 95000,
+        settlement: SettlementState.settled,
+        concededPaise: 5000,
+        detail: '1 tub at 950',
+      ),
+      StatementLine(
+        date: DateTime(2026, 9, 5),
+        description: 'Payment received',
+        amountPaise: -90000,
+      ),
+      StatementLine(
+        date: DateTime(2026, 9, 5),
+        description: 'Discount given',
+        amountPaise: -5000,
+      ),
+    ],
+  ),
+  cash: const StatementGroup(title: 'Cash', lines: <StatementLine>[]),
+  generatedAt: DateTime(2026, 9, 9),
+);
 
 Statement sampleStatement({bool bothPools = true}) => Statement(
   person: kMeera,
@@ -286,15 +313,9 @@ const List<ExpenseCategory> kCategories = <ExpenseCategory>[
   ExpenseCategory(id: 2, name: 'Packaging', archived: true),
 ];
 
-Map<int, Product> get kProductsById => const <int, Product>{
-  1: kShake,
-  2: kTea,
-};
+Map<int, Product> get kProductsById => const <int, Product>{1: kShake, 2: kTea};
 
-Map<int, Person> get kPeopleById => const <int, Person>{
-  1: kMeera,
-  2: kSunita,
-};
+Map<int, Person> get kPeopleById => const <int, Person>{1: kMeera, 2: kSunita};
 
 Map<int, ExpenseCategory> get kCategoriesById => <int, ExpenseCategory>{
   for (final ExpenseCategory c in kCategories)

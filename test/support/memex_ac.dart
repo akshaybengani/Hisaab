@@ -234,10 +234,42 @@ void useAcEmission(String testFile) {
   tearDownAll(_flush);
 }
 
-/// Declares a test and the acceptance criteria it verifies.
+/// Runs a test body and buffers one event per acceptance criterion.
 ///
 /// Emits on pass, on failure, and on error, because the board shows the latest
 /// result per test and a skipped failure would leave stale green.
+Future<void> _tagged(
+  String description,
+  List<String> acs,
+  FutureOr<void> Function() body,
+) async {
+  final Stopwatch watch = Stopwatch()..start();
+  String status = 'pass';
+  try {
+    await body();
+  } on TestFailure {
+    status = 'fail';
+    rethrow;
+  } catch (_) {
+    status = 'error';
+    rethrow;
+  } finally {
+    watch.stop();
+    final String file = _currentFile ?? 'test';
+    for (final String handle in acs) {
+      _buffer.add(
+        _Event(
+          acUid: ac(handle),
+          status: status,
+          testIdentifier: '$file::$description',
+          durationMs: watch.elapsedMilliseconds,
+        ),
+      );
+    }
+  }
+}
+
+/// Declares a test and the acceptance criteria it verifies.
 @isTest
 void acTest(
   String description,
@@ -248,32 +280,26 @@ void acTest(
 }) {
   test(
     description,
-    () async {
-      final Stopwatch watch = Stopwatch()..start();
-      String status = 'pass';
-      try {
-        await body();
-      } on TestFailure {
-        status = 'fail';
-        rethrow;
-      } catch (_) {
-        status = 'error';
-        rethrow;
-      } finally {
-        watch.stop();
-        final String file = _currentFile ?? 'test';
-        for (final String handle in acs) {
-          _buffer.add(
-            _Event(
-              acUid: ac(handle),
-              status: status,
-              testIdentifier: '$file::$description',
-              durationMs: watch.elapsedMilliseconds,
-            ),
-          );
-        }
-      }
-    },
+    () => _tagged(description, acs, body),
+    skip: skip,
+    timeout: timeout,
+  );
+}
+
+/// The widget twin of [acTest], for a criterion whose claim is about what
+/// reaches the screen. A pure assertion on the label string would only prove
+/// the constant exists, so those criteria get a real render.
+@isTest
+void acTestWidgets(
+  String description,
+  List<String> acs,
+  WidgetTesterCallback body, {
+  bool? skip,
+  Timeout? timeout,
+}) {
+  testWidgets(
+    description,
+    (WidgetTester tester) => _tagged(description, acs, () => body(tester)),
     skip: skip,
     timeout: timeout,
   );

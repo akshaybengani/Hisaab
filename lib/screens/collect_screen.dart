@@ -59,18 +59,23 @@ class CollectScreen extends StatelessWidget {
       kind: plan.kind,
     );
 
+    // Both clearing entries are adjustments. A concession made while the cash
+    // is being counted is not a debt abandoned, so nothing here writes a
+    // [MoneyKind.writeOff]. Direction carries which way it went: a discount
+    // reduces what the person owes, change kept brings a negative balance
+    // back to zero.
     MoneyEntry? clearing;
-    if (clearRemainder && plan.canWriteOff) {
+    if (clearRemainder && plan.canGiveDiscount) {
       clearing = MoneyEntry(
         id: null,
         personId: personId,
         date: today,
         amountPaise: plan.remainderPaise,
         direction: MoneyDirection.incoming,
-        kind: MoneyKind.writeOff,
-        note: 'Written off on collection',
+        kind: MoneyKind.adjustment,
+        note: 'Discount given on collection',
       );
-    } else if (clearRemainder && plan.canAdjust) {
+    } else if (clearRemainder && plan.canKeepChange) {
       clearing = MoneyEntry(
         id: null,
         personId: personId,
@@ -78,7 +83,7 @@ class CollectScreen extends StatelessWidget {
         amountPaise: plan.remainderPaise.abs(),
         direction: MoneyDirection.outgoing,
         kind: MoneyKind.adjustment,
-        note: 'Round off on collection',
+        note: 'Change kept on collection',
       );
     }
 

@@ -27,7 +27,7 @@ class CollectView extends StatefulWidget {
   final int cashDuePaise;
 
   /// Called with the payment and, where the user chose to clear the leftover,
-  /// the write-off or round-off that goes with it.
+  /// the discount given or the change kept that goes with it.
   final void Function(CollectPlan plan, {required bool clearRemainder})
   onRecord;
 
@@ -147,7 +147,7 @@ class _CollectViewState extends State<CollectView> {
         ],
         const SizedBox(height: 16),
         _RemainderCard(plan: plan),
-        if (plan.canWriteOff || plan.canAdjust) ...<Widget>[
+        if (plan.canGiveDiscount || plan.canKeepChange) ...<Widget>[
           const SizedBox(height: 8),
           CheckboxListTile(
             value: _clearRemainder,
@@ -155,15 +155,15 @@ class _CollectViewState extends State<CollectView> {
                 setState(() => _clearRemainder = next ?? false),
             contentPadding: EdgeInsets.zero,
             title: Text(
-              plan.canWriteOff
-                  ? 'Write off ${Money.formatWithSymbol(plan.remainderPaise)}'
-                  : 'Adjust ${Money.formatWithSymbol(plan.remainderPaise.abs())}',
+              plan.canGiveDiscount
+                  ? 'Give ${Money.formatWithSymbol(plan.remainderPaise)} discount'
+                  : 'Keep ${Money.formatWithSymbol(plan.remainderPaise.abs())} change',
             ),
             subtitle: Text(
-              plan.canWriteOff
-                  ? 'Records the leftover as a balance you have stopped chasing, '
-                        'so the payment stays equal to the cash you took.'
-                  : 'Records the overpayment as a deliberate round-off, so the '
+              plan.canGiveDiscount
+                  ? 'Records the difference as a discount you gave, so the '
+                        'payment stays equal to the cash you took.'
+                  : 'Records the difference as change you kept, so the '
                         'payment stays equal to the cash you took.',
             ),
           ),

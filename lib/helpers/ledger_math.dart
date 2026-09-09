@@ -43,8 +43,13 @@ abstract final class LedgerMath {
     return balance;
   }
 
-  /// Marks each delivery paid, partly paid, or unpaid by consuming
-  /// delivery-settling payments oldest first.
+  /// Marks each delivery paid, settled, partly paid, or unpaid by consuming
+  /// the money and then the concessions that settle deliveries, oldest first.
+  ///
+  /// A concession closes a delivery just as money does, so a delivery covered
+  /// in part by a discount reads [SettlementState.settled] rather than
+  /// leaving an unpaid line beside a zero balance. Covered entirely by money
+  /// it reads [SettlementState.paid]. See dec-15, verified by ac-42.
   ///
   /// Pure, and the result is never persisted, so it cannot drift from the
   /// balance. Returns a map keyed by delivery id. See dec-1, verified by
@@ -79,13 +84,32 @@ abstract final class LedgerMath {
     return 0;
   }
 
+  /// How much of one delivery's coverage was conceded rather than paid, in
+  /// paise. Zero on a delivery covered entirely by money.
+  ///
+  /// Public because a settled delivery has to name the figure on screen, which
+  /// is the whole reason [SettlementState.settled] exists. See dec-15,
+  /// verified by ac-43.
+  static int concededPaise(
+    int deliveryId,
+    List<DeliveryWithItems> deliveries,
+    List<MoneyEntry> entries,
+  ) {
+    for (final _Coverage coverage in _cover(deliveries, entries)) {
+      if (coverage.delivery.delivery.id == deliveryId) {
+        return coverage.concededPaise;
+      }
+    }
+    return 0;
+  }
+
   /// Builds the object every renderer reads. Product dues and cash appear as
   /// two subtotalled groups with one net figure. See dec-6, verified by
   /// ac-20 and ac-18.
   ///
-  /// A round-off and a write-off are lines of their own rather than a smaller
-  /// delivery, so what was handed over still reads at the price it was handed
-  /// over at. See dec-13.
+  /// A discount, change kept, and a write-off are lines of their own rather
+  /// than a smaller delivery, so what was handed over still reads at the price
+  /// it was handed over at. See dec-13.
   static Statement buildStatement({
     required Person person,
     required List<DeliveryWithItems> deliveries,
@@ -103,6 +127,7 @@ abstract final class LedgerMath {
           amountPaise: coverage.delivery.totalPaise,
           forMember: coverage.delivery.delivery.forMember,
           settlement: coverage.state,
+          concededPaise: coverage.concededPaise,
           detail: _deliveryDetail(coverage.delivery, productsById),
         ),
       for (final MoneyEntry entry in ordered)
@@ -160,13 +185,15 @@ abstract final class LedgerMath {
     return result;
   }
 
-  /// The kinds allocated against product deliveries. A payment settles them
-  /// outright; a round-off or a write-off reduces the same pool without being
-  /// a payment.
-  static bool _isProductPool(MoneyKind kind) =>
-      kind.settlesDeliveries ||
-      kind == MoneyKind.adjustment ||
-      kind == MoneyKind.writeOff;
+  /// The kinds allocated against product deliveries: a payment, and the two
+  /// concessions that close a delivery without one.
+  static bool _isProductPool(MoneyKind kind) => kind.settlesDeliveries;
+
+  /// The kinds that close a delivery without money changing hands. Tracked
+  /// apart from payments so a covered delivery can say which of the two did
+  /// it. See dec-15.
+  static bool _isConcession(MoneyKind kind) =>
+      kind == MoneyKind.adjustment || kind == MoneyKind.writeOff;
 
   /// The kinds that belong to the cash pool: the two sides of a plain loan
   /// and the money coming back against one.
@@ -175,20 +202,40 @@ abstract final class LedgerMath {
       kind == MoneyKind.cashLent ||
       kind == MoneyKind.cashBorrowed;
 
-  /// The money available to settle deliveries. Only kinds flagged
-  /// [MoneyKind.settlesDeliveries] are allocated, so a round-off or a
-  /// write-off zeroes a balance without claiming the person paid.
-  static int _deliverySettlingPaise(List<MoneyEntry> entries) {
+  /// The cash available to settle deliveries: the money the person actually
+  /// handed over, concessions excluded. A net refund leaves nothing rather
+  /// than a negative pool.
+  static int _paidPaise(List<MoneyEntry> entries) =>
+      _availablePaise(entries, conceded: false);
+
+  /// The concessions available to settle deliveries: a discount given, change
+  /// kept, or a balance written off. Consumed after the money, so a
+  /// concession lands on the delivery the money did not reach. See dec-15.
+  static int _concessionPaise(List<MoneyEntry> entries) =>
+      _availablePaise(entries, conceded: true);
+
+  static int _availablePaise(
+    List<MoneyEntry> entries, {
+    required bool conceded,
+  }) {
     int available = 0;
     for (final MoneyEntry entry in entries) {
-      if (entry.kind.settlesDeliveries) available -= entry.signedPaise;
+      if (entry.kind.settlesDeliveries &&
+          _isConcession(entry.kind) == conceded) {
+        available -= entry.signedPaise;
+      }
     }
     return available < 0 ? 0 : available;
   }
 
   /// Walks the deliveries oldest first and consumes the delivery-settling
-  /// money until it runs out. Deliveries are ordered by date, then by id, so
-  /// the outcome never depends on the order the caller happened to read them.
+  /// money until it runs out, then does the same with the concessions.
+  /// Deliveries are ordered by date, then by id, so the outcome never depends
+  /// on the order the caller happened to read them.
+  ///
+  /// Money goes first on purpose. It means a concession lands on the part no
+  /// payment reached, which is where it was actually granted, and a delivery
+  /// money covered outright still reads as paid.
   static List<_Coverage> _cover(
     List<DeliveryWithItems> deliveries,
     List<MoneyEntry> entries,
@@ -196,15 +243,23 @@ abstract final class LedgerMath {
     final List<DeliveryWithItems> ordered = List<DeliveryWithItems>.of(
       deliveries,
     )..sort(_byDeliveryDate);
-    int available = _deliverySettlingPaise(entries);
+    int paid = _paidPaise(entries);
+    int conceded = _concessionPaise(entries);
     final List<_Coverage> result = <_Coverage>[];
     for (final DeliveryWithItems delivery in ordered) {
       final int total = delivery.totalPaise;
-      final int covered = total <= 0
-          ? total
-          : (total <= available ? total : available);
-      if (covered > 0) available -= covered;
-      result.add(_Coverage(delivery, covered));
+      if (total <= 0) {
+        result.add(_Coverage(delivery, total, 0));
+        continue;
+      }
+      final int fromMoney = total <= paid ? total : paid;
+      if (fromMoney > 0) paid -= fromMoney;
+      final int shortfall = total - fromMoney;
+      final int fromConcession = shortfall <= conceded ? shortfall : conceded;
+      if (fromConcession > 0) conceded -= fromConcession;
+      result.add(
+        _Coverage(delivery, fromMoney + fromConcession, fromConcession),
+      );
     }
     return result;
   }
@@ -216,12 +271,11 @@ abstract final class LedgerMath {
   }
 
   static List<MoneyEntry> _sortedEntries(List<MoneyEntry> entries) {
-    return List<MoneyEntry>.of(entries)
-      ..sort((MoneyEntry a, MoneyEntry b) {
-        final int byDate = a.date.compareTo(b.date);
-        if (byDate != 0) return byDate;
-        return (a.id ?? _noId).compareTo(b.id ?? _noId);
-      });
+    return List<MoneyEntry>.of(entries)..sort((MoneyEntry a, MoneyEntry b) {
+      final int byDate = a.date.compareTo(b.date);
+      if (byDate != 0) return byDate;
+      return (a.id ?? _noId).compareTo(b.id ?? _noId);
+    });
   }
 
   /// Sorts by date without disturbing the order of lines that share one, so a
@@ -243,17 +297,23 @@ abstract final class LedgerMath {
 
   static StatementLine _moneyLine(MoneyEntry entry) => StatementLine(
     date: entry.date,
-    description: _describe(entry.kind),
+    description: _describe(entry),
     amountPaise: entry.signedPaise,
     detail: _moneyDetail(entry),
   );
 
-  static String _describe(MoneyKind kind) => switch (kind) {
+  /// An adjustment reads by its direction, because the two directions are
+  /// different acts in the owner's own words: money in means she gave a
+  /// discount, money out means she kept the change. A write-off is neither.
+  static String _describe(MoneyEntry entry) => switch (entry.kind) {
     MoneyKind.paymentReceived => 'Payment received',
     MoneyKind.cashLent => 'Cash lent',
     MoneyKind.cashBorrowed => 'Cash borrowed',
     MoneyKind.repayment => 'Repayment',
-    MoneyKind.adjustment => 'Round-off adjustment',
+    MoneyKind.adjustment =>
+      entry.direction == MoneyDirection.incoming
+          ? 'Discount given'
+          : 'Change kept',
     MoneyKind.writeOff => 'Written off',
   };
 
@@ -329,17 +389,23 @@ abstract final class LedgerMath {
   static const int _noId = -1 >>> 1;
 }
 
-/// How much of one delivery the payments cover, which is the only state
-/// allocation needs to carry between deliveries.
+/// How much of one delivery is covered and how much of that was conceded,
+/// which is the only state allocation needs to carry between deliveries.
 class _Coverage {
-  const _Coverage(this.delivery, this.coveredPaise);
+  const _Coverage(this.delivery, this.coveredPaise, this.concededPaise);
 
   final DeliveryWithItems delivery;
   final int coveredPaise;
 
+  /// The part of [coveredPaise] that came from a discount, change kept, or a
+  /// write-off rather than from money. Zero on a delivery covered by cash.
+  final int concededPaise;
+
   SettlementState get state {
     final int total = delivery.totalPaise;
-    if (coveredPaise >= total) return SettlementState.paid;
+    if (coveredPaise >= total) {
+      return concededPaise > 0 ? SettlementState.settled : SettlementState.paid;
+    }
     if (coveredPaise <= 0) return SettlementState.unpaid;
     return SettlementState.partlyPaid;
   }

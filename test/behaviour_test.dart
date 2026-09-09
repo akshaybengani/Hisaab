@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hisaab/components/deliver_form.dart';
 import 'package:hisaab/components/dues_view.dart';
+import 'package:hisaab/components/person_detail_view.dart';
 import 'package:hisaab/components/purchase_form.dart';
 import 'package:hisaab/components/requests_view.dart';
 import 'package:hisaab/components/settings_view.dart';
@@ -9,11 +10,14 @@ import 'package:hisaab/components/stock_view.dart';
 import 'package:hisaab/models/models.dart';
 
 import 'support/harness.dart';
+import 'support/memex_ac.dart';
 
 void _nothing() {}
 
 /// The behaviour the brief is specific about, rather than the layout.
 void main() {
+  useAcEmission('test/behaviour_test.dart');
+
   group('dues', () {
     testWidgets('leads with one figure for everything that is out', (
       WidgetTester tester,
@@ -345,6 +349,92 @@ void main() {
       expect(saved, isTrue);
       expect(absorbed, isNull);
     });
+
+    testWidgets('a discount received is named and never offered to expenses', (
+      WidgetTester tester,
+    ) async {
+      await pumpOnSmallPhone(
+        tester,
+        Scaffold(
+          body: PurchaseForm(
+            products: const <Product>[kShake],
+            categories: kCategories,
+            onAddProduct: _nothing,
+            onSave:
+                (
+                  Purchase purchase,
+                  List<PurchaseItem> items, {
+                  Expense? absorbedExpense,
+                }) {},
+          ),
+        ),
+        brightness: Brightness.light,
+      );
+
+      await tester.enterText(find.widgetWithText(TextFormField, 'Qty'), '3');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Unit cost'),
+        '2000',
+      );
+      await tester.pump();
+
+      await tester.scrollUntilVisible(
+        find.widgetWithText(TextFormField, 'Total paid'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Total paid'),
+        '5950',
+      );
+      await tester.pump();
+
+      expect(
+        find.textContaining('Discount received ₹50'),
+        findsOneWidget,
+        reason: 'paying under the lines is a saving, not something absorbed',
+      );
+      expect(
+        find.byType(Checkbox),
+        findsNothing,
+        reason: 'a discount she received is not an expense she paid',
+      );
+    });
+  });
+
+  group('the statement', () {
+    /// Verifies ac-43.
+    acTestWidgets(
+      'a settled delivery names what was conceded',
+      <String>['ac-43'],
+      (WidgetTester tester) async {
+        await pumpOnSmallPhone(
+          tester,
+          Scaffold(
+            body: PersonDetailView(
+              statement: settledStatement(),
+              onCollect: _nothing,
+              onLendCash: _nothing,
+              onShareText: _nothing,
+              onSharePdf: _nothing,
+            ),
+          ),
+          brightness: Brightness.light,
+        );
+
+        expect(
+          find.text('Settled, ₹50 discount'),
+          findsOneWidget,
+          reason: 'the concession stays visible at the point of settlement',
+        );
+        expect(
+          find.text('Paid'),
+          findsNothing,
+          reason: 'part of it was conceded, so nothing may claim it was paid',
+        );
+      },
+    );
   });
 
   group('settings', () {

@@ -60,12 +60,15 @@ class CollectPlan {
 
   bool get hasRemainder => hasPayment && remainderPaise != 0;
 
-  /// A leftover the owner can decide to stop chasing.
-  bool get canWriteOff => hasRemainder && remainderPaise > 0;
+  /// The person handed over less than they owe, so the difference is a
+  /// discount the owner can choose to give at the moment of collection. It is
+  /// a deliberate concession on cash being counted, not a debt abandoned.
+  bool get canGiveDiscount => hasRemainder && remainderPaise > 0;
 
-  /// An overpayment, cleared by a deliberate round-off so the recorded
-  /// payment stays equal to the cash that actually moved. See dec-13.
-  bool get canAdjust => hasRemainder && remainderPaise < 0;
+  /// The person handed over more than they owe, so the difference is change
+  /// the owner can choose to keep. Recording it keeps the payment equal to
+  /// the cash that actually moved. See dec-13.
+  bool get canKeepChange => hasRemainder && remainderPaise < 0;
 
   CollectPlan copyWith({int? paidPaise, SettlementPool? pool}) => CollectPlan(
     productDuePaise: productDuePaise,
@@ -91,6 +94,14 @@ class PurchaseGap {
   int get absorbedPaise => totalPaidPaise - lineTotalPaise;
 
   bool get hasGap => absorbedPaise != 0;
+
+  /// The owner paid out more than the lines account for, so the gap cost her
+  /// money and writing it to expenses is a fair offer.
+  bool get isAbsorbed => absorbedPaise > 0;
+
+  /// The order came in under its lines, so the gap is a discount she
+  /// received. A saving is never an expense, so nothing is offered here.
+  bool get isDiscount => absorbedPaise < 0;
 }
 
 /// Matches a noun to its count [per std-24]: "1 bottle", "0 bottles".
