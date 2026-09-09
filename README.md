@@ -10,7 +10,7 @@ Not an inventory app. It tracks who owes you money, and stock is a by-product.
 
 [![Platform](https://img.shields.io/badge/platform-Android%2010%2B-333196)](#running-it)
 [![Flutter](https://img.shields.io/badge/Flutter-3.44-333196)](#running-it)
-[![Tests](https://img.shields.io/badge/tests-342%20%2B%208%20on%20device-333196)](#tests)
+[![Tests](https://img.shields.io/badge/tests-416%20%2B%208%20on%20device-333196)](#tests)
 [![Network](https://img.shields.io/badge/network-none-333196)](#privacy-and-what-it-costs)
 [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-333196)](LICENSE)
 
@@ -69,11 +69,19 @@ These are the situations the arithmetic is built around, and each one is a test.
 
 **A purchase that didn't cost what its lines say.** Paying ₹200 more than the lines is shipping you absorbed, and the app offers to log it as an expense. Paying ₹50 less is a **discount received**, which is a saving, so it is named and never offered as an expense.
 
+## Getting around
+
+Four destinations along the bottom, because they are where the day happens: **Dues**, **Requests**, **Stock** and **Expenses**. **Deliver** is a floating button reachable from all of them, since handing units over is the most frequent thing anyone does here. Everything else lives in the left drawer: People, Products, Purchases, Categories, Reports and Settings.
+
+Every list has a search field, and terms are ANDed rather than ORed, so typing two words narrows instead of widening. It matches names, products, unit labels, categories, notes, phone numbers (with or without the spaces you typed them with), and the member a delivery was for. A search that matches nothing says so and offers to clear itself, which is a different thing from a list that is genuinely empty and says how to start it.
+
 ## Sharing
 
 One statement model renders three ways, so the figures cannot disagree between them: templated text to the share sheet, a PDF generated on the device, and a CSV of the dues list.
 
 Templates are editable, because the tone of asking for money as a favour is nothing like a shop's, and only you can word it. Five ship by default: statement, payment reminder, receipt, consolidated shopping list, and what's in stock now. Placeholders that don't resolve are left in the text literally rather than vanishing, so a typo reads back to you.
+
+A person's screen sends their statement, a reminder (offered only where they actually owe), or a receipt, and taking a payment offers a receipt naming the amount just taken. The **Reports** screen in the drawer holds the documents that are about the book rather than one person: dues, stock and monthly expenses as PDFs, the dues list as CSV, and the shopping list and what's in stock as text. Where there is nothing to report, the row says so and produces nothing rather than a blank document.
 
 The PDF bundles Noto Sans. This isn't decoration: the built-in PDF fonts are Latin-1 only, so every ₹ would render as a blank box in the one document you actually hand to someone. It also carries a header and footer you set in settings, so nothing personal is baked into the build.
 
@@ -116,7 +124,7 @@ lib/
   providers/              app state, held in memory, reloaded after each write
   components/             the presentational half of every screen
   screens/                dues, people, deliver, collect, requests, stock, purchases,
-                          expenses, categories, products, settings
+                          expenses, categories, products, reports, settings
 tool/verify_offline.sh    checks the privacy claim against the built APK
 ```
 
@@ -163,19 +171,21 @@ Then create `android/key.properties` with `storeFile`, `storePassword`, `keyAlia
 
 ```
 flutter analyze   # clean
-flutter test      # 342 tests
+flutter test      # 416 tests
 ```
 
 | Suite | Tests | What it covers |
 |---|---|---|
 | `screens_render_test` | 102 | Every screen with data and empty, at 360 by 560, in both themes |
 | `ledger_math_test` | 56 | Balances, oldest-first allocation, the two pools, settlement states |
+| `search_test` | 52 | Terms ANDing, every searchable field, the no-match state |
 | `repository_test` | 43 | Every repository, transactions, archiving, the request lifecycle |
 | `statement_render_test` | 26 | Text, PDF and CSV agreeing, templates, CSV quoting, `wa.me` links |
 | `backup_test` | 25 | Export and import round trips, and files that cannot be trusted |
 | `stock_math_test` | 24 | On hand, recount deltas, movement history, the shopping list |
+| `reports_test` | 20 | Every document renders, and the reachability guard |
+| `behaviour_test` | 15 | What each screen does when you use it |
 | `migration_test` | 14 | A hand-built v1 database upgraded and checked row by row |
-| `behaviour_test` | 13 | What each screen does when you use it |
 | `invariants_test` | 11 | The side effects that must **not** happen |
 | `collect_test` | 10 | Discounts, change, and which pool a payment settles |
 | `empty_states_test` | 9 | Every list surface names a next action |
@@ -190,6 +200,7 @@ What the testing actually caught, which is the only interesting part:
 - The **360 by 560 render suite** found a request bar that overflowed by 93 pixels once a count sat beside two buttons, and a list that trusted its caller to sort.
 - The **integration suite** found that the export tile was dead. `BackupService` was complete with 25 passing tests, and nothing wired it to the settings screen. Since the book is excluded from cloud backup on purpose, export is the only way it survives a new phone, so this was a data-loss bug sitting behind a green suite. Every piece worked; nobody had joined them up.
 - A **drift guard** caught the same vocabulary rule being implemented in two places, which broke the moment one of them changed.
+- An **audit after those found a whole layer wired to nothing**: four of five message templates and three of four PDF reports had no way in, and settings let you edit a payment reminder the app could not send. `reports_test` now carries a guard that fails if any document renderer stops being called from a screen, because working code attached to nothing passes every test it owns.
 - The **invariants suite** exists because several acceptance criteria had a second half nothing checked: "and updates no other table", "and moves no balance", "never written automatically". That is where a regression hides, because the happy path keeps passing.
 
 ## Licence
