@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hisaab/services/database_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'support/memex_ac.dart';
+
 /// The ledger table as a version 1 install has it. Typed out here rather than
 /// read from the service, so a change to the shipped DDL shows up as a failing
 /// comparison instead of quietly agreeing with itself.
@@ -38,6 +40,8 @@ final List<Migration> _throughStep2 = <Migration>[
 ];
 
 void main() {
+  useAcEmission('test/migration_test.dart');
+
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
@@ -145,18 +149,22 @@ void main() {
       expect(deliveryTypes['date'], 'TEXT');
     });
 
-    test('there is no stored balance and no stored quantity', () async {
-      final Database db = await track(
-        DatabaseService.open(path: at('derived')),
-      );
-      final Map<String, Set<String>> shape = await columnsByTable(db);
+    acTest(
+      'there is no stored balance and no stored quantity',
+      <String>['ac-8', 'ac-13'],
+      () async {
+        final Database db = await track(
+          DatabaseService.open(path: at('derived')),
+        );
+        final Map<String, Set<String>> shape = await columnsByTable(db);
 
-      expect(shape['people'], isNot(contains('balance')));
-      expect(shape['people'], isNot(contains('due_paise')));
-      expect(shape['products'], isNot(contains('qty')));
-      expect(shape['products'], isNot(contains('on_hand')));
-      expect(shape['products'], isNot(contains('stock')));
-    });
+        expect(shape['people'], isNot(contains('balance')));
+        expect(shape['people'], isNot(contains('due_paise')));
+        expect(shape['products'], isNot(contains('qty')));
+        expect(shape['products'], isNot(contains('on_hand')));
+        expect(shape['products'], isNot(contains('stock')));
+      },
+    );
 
     test('every column each read filters on is indexed', () async {
       final Database db = await track(
@@ -191,17 +199,11 @@ void main() {
 
     test('a history with a real added step reaches it too', () async {
       final Database created = await track(
-        DatabaseService.open(
-          path: at('created2'),
-          migrations: _throughStep2,
-        ),
+        DatabaseService.open(path: at('created2'), migrations: _throughStep2),
       );
       await handBuildVersion1(at('upgraded2'));
       final Database upgraded = await track(
-        DatabaseService.open(
-          path: at('upgraded2'),
-          migrations: _throughStep2,
-        ),
+        DatabaseService.open(path: at('upgraded2'), migrations: _throughStep2),
       );
 
       final Map<String, Set<String>> shape = await columnsByTable(created);

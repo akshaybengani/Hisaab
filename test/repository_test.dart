@@ -8,7 +8,11 @@ import 'package:hisaab/repositories/factory.dart';
 import 'package:hisaab/repositories/sqflite_repositories.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'support/memex_ac.dart';
+
 void main() {
+  useAcEmission('test/repository_test.dart');
+
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
@@ -34,9 +38,7 @@ void main() {
   DateTime day(int d) => DateTime(2026, 2, d);
 
   Future<int> aPerson({String name = 'Meera', bool household = false}) =>
-      repos.people.insert(
-        Person(id: null, name: name, isHousehold: household),
-      );
+      repos.people.insert(Person(id: null, name: name, isHousehold: household));
 
   Future<int> aProduct({String name = 'Formula 1', int paise = 205000}) =>
       repos.products.insert(
@@ -88,50 +90,64 @@ void main() {
       );
     });
 
-    test('an unchanged price writes no history row', () async {
-      final int id = await aProduct();
-      final Product stored = (await repos.products.byId(id))!;
+    acTest(
+      'an unchanged price writes no history row',
+      <String>['ac-12'],
+      () async {
+        final int id = await aProduct();
+        final Product stored = (await repos.products.byId(id))!;
 
-      await repos.products.update(stored.copyWith(unitLabel: 'jar'));
-      await repos.products.update(stored.copyWith(category: 'shakes'));
+        await repos.products.update(stored.copyWith(unitLabel: 'jar'));
+        await repos.products.update(stored.copyWith(category: 'shakes'));
 
-      expect(await repos.products.priceHistory(id), isEmpty);
-    });
+        expect(await repos.products.priceHistory(id), isEmpty);
+      },
+    );
 
-    test('a changed price appends one history row carrying the new price',
-        () async {
-      final int id = await aProduct();
-      final Product stored = (await repos.products.byId(id))!;
+    acTest(
+      'a changed price appends one history row carrying the new price',
+      <String>['ac-12'],
+      () async {
+        final int id = await aProduct();
+        final Product stored = (await repos.products.byId(id))!;
 
-      await repos.products.update(stored.copyWith(currentPricePaise: 215000));
-      await repos.products.update(stored.copyWith(currentPricePaise: 220000));
+        await repos.products.update(stored.copyWith(currentPricePaise: 215000));
+        await repos.products.update(stored.copyWith(currentPricePaise: 220000));
 
-      final List<PriceChange> history = await repos.products.priceHistory(id);
-      expect(
-        history.map((PriceChange change) => change.pricePaise).toList(),
-        <int>[215000, 220000],
-      );
-      expect(history.every((PriceChange change) => change.productId == id),
-          isTrue);
-      expect((await repos.products.byId(id))!.currentPricePaise, 220000);
-    });
+        final List<PriceChange> history = await repos.products.priceHistory(id);
+        expect(
+          history.map((PriceChange change) => change.pricePaise).toList(),
+          <int>[215000, 220000],
+        );
+        expect(
+          history.every((PriceChange change) => change.productId == id),
+          isTrue,
+        );
+        expect((await repos.products.byId(id))!.currentPricePaise, 220000);
+      },
+    );
 
-    test('a price change never rewrites a delivery line', () async {
-      final int personId = await aPerson();
-      final int productId = await aProduct();
-      await repos.deliveries.insert(
-        Delivery(id: null, personId: personId, date: day(3)),
-        <DeliveryItem>[line(productId, qty: 2)],
-      );
+    acTest(
+      'a price change never rewrites a delivery line',
+      <String>['ac-11', 'ac-12'],
+      () async {
+        final int personId = await aPerson();
+        final int productId = await aProduct();
+        await repos.deliveries.insert(
+          Delivery(id: null, personId: personId, date: day(3)),
+          <DeliveryItem>[line(productId, qty: 2)],
+        );
 
-      final Product stored = (await repos.products.byId(productId))!;
-      await repos.products.update(stored.copyWith(currentPricePaise: 300000));
+        final Product stored = (await repos.products.byId(productId))!;
+        await repos.products.update(stored.copyWith(currentPricePaise: 300000));
 
-      final List<DeliveryWithItems> after =
-          await repos.deliveries.forPerson(personId);
-      expect(after.single.items.single.unitPricePaise, 205000);
-      expect(after.single.totalPaise, 410000);
-    });
+        final List<DeliveryWithItems> after = await repos.deliveries.forPerson(
+          personId,
+        );
+        expect(after.single.items.single.unitPricePaise, 205000);
+        expect(after.single.totalPaise, 410000);
+      },
+    );
 
     test('updating a product that is not there is refused', () async {
       await expectLater(
@@ -147,30 +163,34 @@ void main() {
       );
     });
 
-    test('archiving hides the product and leaves its lines alone', () async {
-      final int personId = await aPerson();
-      final int productId = await aProduct();
-      await repos.deliveries.insert(
-        Delivery(id: null, personId: personId, date: day(3)),
-        <DeliveryItem>[line(productId)],
-      );
+    acTest(
+      'archiving hides the product and leaves its lines alone',
+      <String>['ac-41'],
+      () async {
+        final int personId = await aPerson();
+        final int productId = await aProduct();
+        await repos.deliveries.insert(
+          Delivery(id: null, personId: personId, date: day(3)),
+          <DeliveryItem>[line(productId)],
+        );
 
-      await repos.products.setArchived(productId, archived: true);
+        await repos.products.setArchived(productId, archived: true);
 
-      expect(await repos.products.all(), isEmpty);
-      expect(await repos.products.all(includeArchived: true), hasLength(1));
-      expect(await repos.products.byId(productId), isNotNull);
-      final List<DeliveryWithItems> deliveries =
-          await repos.deliveries.forPerson(personId);
-      expect(deliveries.single.items.single.productId, productId);
+        expect(await repos.products.all(), isEmpty);
+        expect(await repos.products.all(includeArchived: true), hasLength(1));
+        expect(await repos.products.byId(productId), isNotNull);
+        final List<DeliveryWithItems> deliveries = await repos.deliveries
+            .forPerson(personId);
+        expect(deliveries.single.items.single.productId, productId);
 
-      await repos.products.setArchived(productId, archived: false);
-      expect(await repos.products.all(), hasLength(1));
-    });
+        await repos.products.setArchived(productId, archived: false);
+        expect(await repos.products.all(), hasLength(1));
+      },
+    );
   });
 
   group('people', () {
-    test('insert, read, update, and archive', () async {
+    acTest('insert, read, update, and archive', <String>['ac-41'], () async {
       final int id = await repos.people.insert(
         const Person(
           id: null,
@@ -191,29 +211,33 @@ void main() {
       expect(await repos.people.all(includeArchived: true), hasLength(1));
     });
 
-    test('archiving leaves every delivery and payment intact', () async {
-      final int personId = await aPerson();
-      final int productId = await aProduct();
-      await repos.deliveries.insert(
-        Delivery(id: null, personId: personId, date: day(3)),
-        <DeliveryItem>[line(productId)],
-      );
-      await repos.money.insert(
-        MoneyEntry(
-          id: null,
-          personId: personId,
-          date: day(5),
-          amountPaise: 100000,
-          direction: MoneyDirection.incoming,
-          kind: MoneyKind.paymentReceived,
-        ),
-      );
+    acTest(
+      'archiving leaves every delivery and payment intact',
+      <String>['ac-41'],
+      () async {
+        final int personId = await aPerson();
+        final int productId = await aProduct();
+        await repos.deliveries.insert(
+          Delivery(id: null, personId: personId, date: day(3)),
+          <DeliveryItem>[line(productId)],
+        );
+        await repos.money.insert(
+          MoneyEntry(
+            id: null,
+            personId: personId,
+            date: day(5),
+            amountPaise: 100000,
+            direction: MoneyDirection.incoming,
+            kind: MoneyKind.paymentReceived,
+          ),
+        );
 
-      await repos.people.setArchived(personId, archived: true);
+        await repos.people.setArchived(personId, archived: true);
 
-      expect(await repos.deliveries.forPerson(personId), hasLength(1));
-      expect(await repos.money.forPerson(personId), hasLength(1));
-    });
+        expect(await repos.deliveries.forPerson(personId), hasLength(1));
+        expect(await repos.money.forPerson(personId), hasLength(1));
+      },
+    );
 
     test('updating a person with no id is refused', () async {
       await expectLater(
@@ -237,10 +261,7 @@ void main() {
           forMember: 'Anu',
           note: 'left at the door',
         ),
-        <DeliveryItem>[
-          line(first, qty: 2),
-          line(second, qty: 1, paise: 62000),
-        ],
+        <DeliveryItem>[line(first, qty: 2), line(second, qty: 1, paise: 62000)],
       );
 
       final DeliveryWithItems stored = (await repos.deliveries.byId(id))!;
@@ -267,8 +288,9 @@ void main() {
       );
 
       expect(await repos.deliveries.all(), isEmpty);
-      final List<Map<String, Object?>> items =
-          await repos.database.query('delivery_items');
+      final List<Map<String, Object?>> items = await repos.database.query(
+        'delivery_items',
+      );
       expect(items, isEmpty);
     });
 
@@ -346,9 +368,9 @@ void main() {
       );
 
       expect(
-        (await repos.deliveries.forPerson(personId))
-            .map((DeliveryWithItems each) => each.delivery.date)
-            .toList(),
+        (await repos.deliveries.forPerson(
+          personId,
+        )).map((DeliveryWithItems each) => each.delivery.date).toList(),
         <DateTime>[day(2), day(9)],
       );
       expect(await repos.deliveries.all(), hasLength(3));
@@ -356,7 +378,7 @@ void main() {
   });
 
   group('money', () {
-    test('insert, read, update, and delete', () async {
+    acTest('insert, read, update, and delete', <String>['ac-17'], () async {
       final int personId = await aPerson();
       final int id = await repos.money.insert(
         MoneyEntry(
@@ -397,7 +419,7 @@ void main() {
       expect(await repos.money.forPerson(personId), isEmpty);
     });
 
-    test('every kind round trips', () async {
+    acTest('every kind round trips', <String>['ac-17'], () async {
       final int personId = await aPerson();
       for (final MoneyKind kind in MoneyKind.values) {
         await repos.money.insert(
@@ -413,70 +435,78 @@ void main() {
       }
 
       expect(
-        (await repos.money.forPerson(personId))
-            .map((MoneyEntry entry) => entry.kind)
-            .toSet(),
+        (await repos.money.forPerson(
+          personId,
+        )).map((MoneyEntry entry) => entry.kind).toSet(),
         MoneyKind.values.toSet(),
       );
     });
   });
 
   group('stock', () {
-    test('every tap writes one row and reads back oldest first', () async {
-      final int productId = await aProduct();
-      for (final int d in <int>[6, 2, 4]) {
-        await repos.stock.insert(
+    acTest(
+      'every tap writes one row and reads back oldest first',
+      <String>['ac-14'],
+      () async {
+        final int productId = await aProduct();
+        for (final int d in <int>[6, 2, 4]) {
+          await repos.stock.insert(
+            StockAdjustment(
+              id: null,
+              productId: productId,
+              qtyDelta: -1,
+              reason: StockReason.manual,
+              date: day(d),
+            ),
+          );
+        }
+
+        expect(
+          (await repos.stock.forProduct(
+            productId,
+          )).map((StockAdjustment each) => each.date).toList(),
+          <DateTime>[day(2), day(4), day(6)],
+        );
+        expect(await repos.stock.all(), hasLength(3));
+      },
+    );
+
+    acTest(
+      'personal use writes the adjustment and its expense together',
+      <String>['ac-16'],
+      () async {
+        final int productId = await aProduct();
+        final int categoryId = await repos.expenses.ensureCategory('Personal');
+
+        final int adjustmentId = await repos.stock.insertWithExpense(
           StockAdjustment(
             id: null,
             productId: productId,
             qtyDelta: -1,
-            reason: StockReason.manual,
-            date: day(d),
+            reason: StockReason.personalUse,
+            date: day(6),
+          ),
+          Expense(
+            id: null,
+            date: day(6),
+            amountPaise: 205000,
+            categoryId: categoryId,
+            note: 'used a tub',
           ),
         );
-      }
 
-      expect(
-        (await repos.stock.forProduct(productId))
-            .map((StockAdjustment each) => each.date)
-            .toList(),
-        <DateTime>[day(2), day(4), day(6)],
-      );
-      expect(await repos.stock.all(), hasLength(3));
-    });
+        final StockAdjustment adjustment = (await repos.stock.forProduct(
+          productId,
+        )).single;
+        expect(adjustment.id, adjustmentId);
+        expect(adjustment.reason, StockReason.personalUse);
 
-    test('personal use writes the adjustment and its expense together',
-        () async {
-      final int productId = await aProduct();
-      final int categoryId = await repos.expenses.ensureCategory('Personal');
-
-      final int adjustmentId = await repos.stock.insertWithExpense(
-        StockAdjustment(
-          id: null,
-          productId: productId,
-          qtyDelta: -1,
-          reason: StockReason.personalUse,
-          date: day(6),
-        ),
-        Expense(
-          id: null,
-          date: day(6),
-          amountPaise: 205000,
-          categoryId: categoryId,
-          note: 'used a tub',
-        ),
-      );
-
-      final StockAdjustment adjustment =
-          (await repos.stock.forProduct(productId)).single;
-      expect(adjustment.id, adjustmentId);
-      expect(adjustment.reason, StockReason.personalUse);
-
-      final Expense expense = (await repos.expenses.all()).single;
-      expect(expense.stockAdjustmentId, adjustmentId);
-      expect(expense.isFromPersonalUse, isTrue);
-      expect(expense.amountPaise, 205000);
-    });
+        final Expense expense = (await repos.expenses.all()).single;
+        expect(expense.stockAdjustmentId, adjustmentId);
+        expect(expense.isFromPersonalUse, isTrue);
+        expect(expense.amountPaise, 205000);
+      },
+    );
 
     test('a bad expense rolls the adjustment back too', () async {
       final int productId = await aProduct();
@@ -504,58 +534,64 @@ void main() {
       expect(await repos.expenses.all(), isEmpty);
     });
 
-    test('deleting a personal use adjustment removes its expense only',
-        () async {
-      final int productId = await aProduct();
-      final int adjustmentId = await repos.stock.insertWithExpense(
-        StockAdjustment(
-          id: null,
-          productId: productId,
-          qtyDelta: -1,
-          reason: StockReason.personalUse,
-          date: day(6),
-        ),
-        Expense(id: null, date: day(6), amountPaise: 205000),
-      );
-      await repos.expenses.insert(
-        Expense(id: null, date: day(7), amountPaise: 30000, note: 'petrol'),
-      );
+    test(
+      'deleting a personal use adjustment removes its expense only',
+      () async {
+        final int productId = await aProduct();
+        final int adjustmentId = await repos.stock.insertWithExpense(
+          StockAdjustment(
+            id: null,
+            productId: productId,
+            qtyDelta: -1,
+            reason: StockReason.personalUse,
+            date: day(6),
+          ),
+          Expense(id: null, date: day(6), amountPaise: 205000),
+        );
+        await repos.expenses.insert(
+          Expense(id: null, date: day(7), amountPaise: 30000, note: 'petrol'),
+        );
 
-      await repos.stock.delete(adjustmentId);
+        await repos.stock.delete(adjustmentId);
 
-      final List<Expense> left = await repos.expenses.all();
-      expect(left, hasLength(1));
-      expect(left.single.note, 'petrol');
-    });
+        final List<Expense> left = await repos.expenses.all();
+        expect(left, hasLength(1));
+        expect(left.single.note, 'petrol');
+      },
+    );
   });
 
   group('purchases', () {
-    test('the header and its lines land together', () async {
-      final int productId = await aProduct();
-      final int id = await repos.purchases.insert(
-        Purchase(
-          id: null,
-          date: day(1),
-          totalPaidPaise: 410000,
-          vendor: 'distributor',
-        ),
-        <PurchaseItem>[
-          PurchaseItem(
+    acTest(
+      'the header and its lines land together',
+      <String>['ac-24', 'ac-25'],
+      () async {
+        final int productId = await aProduct();
+        final int id = await repos.purchases.insert(
+          Purchase(
             id: null,
-            purchaseId: null,
-            productId: productId,
-            qty: 2,
-            unitCostPaise: 199000,
+            date: day(1),
+            totalPaidPaise: 410000,
+            vendor: 'distributor',
           ),
-        ],
-      );
+          <PurchaseItem>[
+            PurchaseItem(
+              id: null,
+              purchaseId: null,
+              productId: productId,
+              qty: 2,
+              unitCostPaise: 199000,
+            ),
+          ],
+        );
 
-      final PurchaseWithItems stored = (await repos.purchases.byId(id))!;
-      expect(stored.purchase.vendor, 'distributor');
-      expect(stored.items.single.qty, 2);
-      expect(stored.lineTotalPaise, 398000);
-      expect(stored.absorbedPaise, 12000);
-    });
+        final PurchaseWithItems stored = (await repos.purchases.byId(id))!;
+        expect(stored.purchase.vendor, 'distributor');
+        expect(stored.items.single.qty, 2);
+        expect(stored.lineTotalPaise, 398000);
+        expect(stored.absorbedPaise, 12000);
+      },
+    );
 
     test('a bad line rolls the whole insert back', () async {
       await expectLater(
@@ -628,54 +664,62 @@ void main() {
       ),
     );
 
-    test('the lifecycle runs pending, ordered, delivered', () async {
-      final int personId = await aPerson();
-      final int productId = await aProduct();
-      final int id = await aRequest(personId, productId);
+    acTest(
+      'the lifecycle runs pending, ordered, delivered',
+      <String>['ac-26'],
+      () async {
+        final int personId = await aPerson();
+        final int productId = await aProduct();
+        final int id = await aRequest(personId, productId);
 
-      expect(
-        (await repos.requests.byStatus(RequestStatus.pending)).single.id,
-        id,
-      );
+        expect(
+          (await repos.requests.byStatus(RequestStatus.pending)).single.id,
+          id,
+        );
 
-      await repos.requests.setStatus(id, RequestStatus.ordered);
-      expect(await repos.requests.byStatus(RequestStatus.pending), isEmpty);
-      expect(
-        (await repos.requests.byStatus(RequestStatus.ordered)).single.qty,
-        3,
-      );
+        await repos.requests.setStatus(id, RequestStatus.ordered);
+        expect(await repos.requests.byStatus(RequestStatus.pending), isEmpty);
+        expect(
+          (await repos.requests.byStatus(RequestStatus.ordered)).single.qty,
+          3,
+        );
 
-      await repos.requests.setStatus(id, RequestStatus.delivered);
-      expect(
-        (await repos.requests.byStatus(RequestStatus.delivered)).single.id,
-        id,
-      );
-    });
+        await repos.requests.setStatus(id, RequestStatus.delivered);
+        expect(
+          (await repos.requests.byStatus(RequestStatus.delivered)).single.id,
+          id,
+        );
+      },
+    );
 
-    test('a transition the lifecycle disallows is refused', () async {
-      final int personId = await aPerson();
-      final int productId = await aProduct();
-      final int id = await aRequest(personId, productId);
+    acTest(
+      'a transition the lifecycle disallows is refused',
+      <String>['ac-26'],
+      () async {
+        final int personId = await aPerson();
+        final int productId = await aProduct();
+        final int id = await aRequest(personId, productId);
 
-      await expectLater(
-        repos.requests.setStatus(id, RequestStatus.delivered),
-        throwsA(isA<ArgumentError>()),
-      );
-      expect(
-        (await repos.requests.forPerson(personId)).single.status,
-        RequestStatus.pending,
-      );
+        await expectLater(
+          repos.requests.setStatus(id, RequestStatus.delivered),
+          throwsA(isA<ArgumentError>()),
+        );
+        expect(
+          (await repos.requests.forPerson(personId)).single.status,
+          RequestStatus.pending,
+        );
 
-      await repos.requests.setStatus(id, RequestStatus.cancelled);
-      await expectLater(
-        repos.requests.setStatus(id, RequestStatus.ordered),
-        throwsA(isA<ArgumentError>()),
-      );
-      expect(
-        (await repos.requests.forPerson(personId)).single.status,
-        RequestStatus.cancelled,
-      );
-    });
+        await repos.requests.setStatus(id, RequestStatus.cancelled);
+        await expectLater(
+          repos.requests.setStatus(id, RequestStatus.ordered),
+          throwsA(isA<ArgumentError>()),
+        );
+        expect(
+          (await repos.requests.forPerson(personId)).single.status,
+          RequestStatus.cancelled,
+        );
+      },
+    );
 
     test('a request that is not there is refused', () async {
       await expectLater(
@@ -684,68 +728,79 @@ void main() {
       );
     });
 
-    test('converting writes the delivery and marks the request delivered',
-        () async {
-      final int personId = await aPerson();
-      final int productId = await aProduct();
-      final int id = await aRequest(personId, productId);
-      await repos.requests.setStatus(id, RequestStatus.ordered);
+    acTest(
+      'converting writes the delivery and marks the request delivered',
+      <String>['ac-26'],
+      () async {
+        final int personId = await aPerson();
+        final int productId = await aProduct();
+        final int id = await aRequest(personId, productId);
+        await repos.requests.setStatus(id, RequestStatus.ordered);
 
-      final int deliveryId = await repos.requests.convertToDelivery(
-        id,
-        line(productId, qty: 3),
-      );
+        final int deliveryId = await repos.requests.convertToDelivery(
+          id,
+          line(productId, qty: 3),
+        );
 
-      final DeliveryWithItems delivery =
-          (await repos.deliveries.byId(deliveryId))!;
-      expect(delivery.delivery.personId, personId);
-      expect(delivery.delivery.note, 'asked on the stairs');
-      expect(delivery.items.single.qty, 3);
-      expect(delivery.totalPaise, 615000);
-      expect(
-        (await repos.requests.forPerson(personId)).single.status,
-        RequestStatus.delivered,
-      );
-    });
+        final DeliveryWithItems delivery = (await repos.deliveries.byId(
+          deliveryId,
+        ))!;
+        expect(delivery.delivery.personId, personId);
+        expect(delivery.delivery.note, 'asked on the stairs');
+        expect(delivery.items.single.qty, 3);
+        expect(delivery.totalPaise, 615000);
+        expect(
+          (await repos.requests.forPerson(personId)).single.status,
+          RequestStatus.delivered,
+        );
+      },
+    );
 
-    test('converting a pending request is refused, and nothing is written',
-        () async {
-      final int personId = await aPerson();
-      final int productId = await aProduct();
-      final int id = await aRequest(personId, productId);
+    acTest(
+      'converting a pending request is refused, and nothing is written',
+      <String>['ac-26'],
+      () async {
+        final int personId = await aPerson();
+        final int productId = await aProduct();
+        final int id = await aRequest(personId, productId);
 
-      await expectLater(
-        repos.requests.convertToDelivery(id, line(productId, qty: 3)),
-        throwsA(isA<ArgumentError>()),
-      );
+        await expectLater(
+          repos.requests.convertToDelivery(id, line(productId, qty: 3)),
+          throwsA(isA<ArgumentError>()),
+        );
 
-      expect(await repos.deliveries.all(), isEmpty);
-      expect(
-        (await repos.requests.forPerson(personId)).single.status,
-        RequestStatus.pending,
-      );
-    });
+        expect(await repos.deliveries.all(), isEmpty);
+        expect(
+          (await repos.requests.forPerson(personId)).single.status,
+          RequestStatus.pending,
+        );
+      },
+    );
 
-    test('a bad line rolls the conversion back whole', () async {
-      final int personId = await aPerson();
-      final int productId = await aProduct();
-      final int id = await aRequest(personId, productId);
-      await repos.requests.setStatus(id, RequestStatus.ordered);
+    acTest(
+      'a bad line rolls the conversion back whole',
+      <String>['ac-26'],
+      () async {
+        final int personId = await aPerson();
+        final int productId = await aProduct();
+        final int id = await aRequest(personId, productId);
+        await repos.requests.setStatus(id, RequestStatus.ordered);
 
-      await expectLater(
-        repos.requests.convertToDelivery(id, line(nextId())),
-        throwsA(isA<DatabaseException>()),
-      );
+        await expectLater(
+          repos.requests.convertToDelivery(id, line(nextId())),
+          throwsA(isA<DatabaseException>()),
+        );
 
-      expect(await repos.deliveries.all(), isEmpty);
-      expect(await repos.database.query('delivery_items'), isEmpty);
-      expect(
-        (await repos.requests.forPerson(personId)).single.status,
-        RequestStatus.ordered,
-      );
-    });
+        expect(await repos.deliveries.all(), isEmpty);
+        expect(await repos.database.query('delivery_items'), isEmpty);
+        expect(
+          (await repos.requests.forPerson(personId)).single.status,
+          RequestStatus.ordered,
+        );
+      },
+    );
 
-    test('a status listing is oldest first', () async {
+    acTest('a status listing is oldest first', <String>['ac-27'], () async {
       final int personId = await aPerson();
       final int productId = await aProduct();
       for (final int d in <int>[8, 1, 5]) {
@@ -762,9 +817,9 @@ void main() {
       }
 
       expect(
-        (await repos.requests.byStatus(RequestStatus.pending))
-            .map((ProductRequest each) => each.createdAt)
-            .toList(),
+        (await repos.requests.byStatus(
+          RequestStatus.pending,
+        )).map((ProductRequest each) => each.createdAt).toList(),
         <DateTime>[day(1), day(5), day(8)],
       );
     });
@@ -830,35 +885,40 @@ void main() {
       );
 
       expect(
-        (await repos.expenses.inMonth(2026, 2))
-            .map((Expense each) => each.amountPaise)
-            .toList(),
+        (await repos.expenses.inMonth(
+          2026,
+          2,
+        )).map((Expense each) => each.amountPaise).toList(),
         <int>[300, 200],
       );
       expect(
-        (await repos.expenses.inMonth(2026, 12))
-            .map((Expense each) => each.amountPaise)
-            .toList(),
+        (await repos.expenses.inMonth(
+          2026,
+          12,
+        )).map((Expense each) => each.amountPaise).toList(),
         <int>[],
       );
     });
 
-    test('December rolls into the next year rather than month thirteen',
-        () async {
-      await repos.expenses.insert(
-        Expense(id: null, date: DateTime(2026, 12, 20), amountPaise: 500),
-      );
-      await repos.expenses.insert(
-        Expense(id: null, date: DateTime(2027, 1, 2), amountPaise: 600),
-      );
+    test(
+      'December rolls into the next year rather than month thirteen',
+      () async {
+        await repos.expenses.insert(
+          Expense(id: null, date: DateTime(2026, 12, 20), amountPaise: 500),
+        );
+        await repos.expenses.insert(
+          Expense(id: null, date: DateTime(2027, 1, 2), amountPaise: 600),
+        );
 
-      expect(
-        (await repos.expenses.inMonth(2026, 12))
-            .map((Expense each) => each.amountPaise)
-            .toList(),
-        <int>[500],
-      );
-    });
+        expect(
+          (await repos.expenses.inMonth(
+            2026,
+            12,
+          )).map((Expense each) => each.amountPaise).toList(),
+          <int>[500],
+        );
+      },
+    );
 
     test('a month outside one to twelve is refused', () async {
       await expectLater(
@@ -871,33 +931,40 @@ void main() {
       );
     });
 
-    test('ensureCategory matches ignoring case rather than creating a twin',
-        () async {
-      final int first = await repos.expenses.ensureCategory('Petrol');
+    acTest(
+      'ensureCategory matches ignoring case rather than creating a twin',
+      <String>['ac-40'],
+      () async {
+        final int first = await repos.expenses.ensureCategory('Petrol');
 
-      expect(await repos.expenses.ensureCategory('petrol'), first);
-      expect(await repos.expenses.ensureCategory('PETROL'), first);
-      expect(await repos.expenses.ensureCategory('  Petrol  '), first);
-      expect(await repos.expenses.categories(), hasLength(1));
+        expect(await repos.expenses.ensureCategory('petrol'), first);
+        expect(await repos.expenses.ensureCategory('PETROL'), first);
+        expect(await repos.expenses.ensureCategory('  Petrol  '), first);
+        expect(await repos.expenses.categories(), hasLength(1));
 
-      final int second = await repos.expenses.ensureCategory('Groceries');
-      expect(second, isNot(first));
-      expect(
-        (await repos.expenses.categories())
-            .map((ExpenseCategory each) => each.name)
-            .toList(),
-        <String>['Groceries', 'Petrol'],
-      );
-    });
+        final int second = await repos.expenses.ensureCategory('Groceries');
+        expect(second, isNot(first));
+        expect(
+          (await repos.expenses.categories())
+              .map((ExpenseCategory each) => each.name)
+              .toList(),
+          <String>['Groceries', 'Petrol'],
+        );
+      },
+    );
 
-    test('ensureCategory brings an archived match back', () async {
-      final int id = await repos.expenses.ensureCategory('Petrol');
-      await repos.expenses.setCategoryArchived(id, archived: true);
-      expect(await repos.expenses.categories(), isEmpty);
+    acTest(
+      'ensureCategory brings an archived match back',
+      <String>['ac-40'],
+      () async {
+        final int id = await repos.expenses.ensureCategory('Petrol');
+        await repos.expenses.setCategoryArchived(id, archived: true);
+        expect(await repos.expenses.categories(), isEmpty);
 
-      expect(await repos.expenses.ensureCategory('petrol'), id);
-      expect(await repos.expenses.categories(), hasLength(1));
-    });
+        expect(await repos.expenses.ensureCategory('petrol'), id);
+        expect(await repos.expenses.categories(), hasLength(1));
+      },
+    );
 
     test('a category with no name is refused', () async {
       await expectLater(
@@ -906,26 +973,30 @@ void main() {
       );
     });
 
-    test('archiving a category leaves every expense pointing at it', () async {
-      final int categoryId = await repos.expenses.ensureCategory('Petrol');
-      await repos.expenses.insert(
-        Expense(
-          id: null,
-          date: day(7),
-          amountPaise: 30000,
-          categoryId: categoryId,
-        ),
-      );
+    acTest(
+      'archiving a category leaves every expense pointing at it',
+      <String>['ac-41'],
+      () async {
+        final int categoryId = await repos.expenses.ensureCategory('Petrol');
+        await repos.expenses.insert(
+          Expense(
+            id: null,
+            date: day(7),
+            amountPaise: 30000,
+            categoryId: categoryId,
+          ),
+        );
 
-      await repos.expenses.setCategoryArchived(categoryId, archived: true);
+        await repos.expenses.setCategoryArchived(categoryId, archived: true);
 
-      expect(await repos.expenses.categories(), isEmpty);
-      expect(
-        await repos.expenses.categories(includeArchived: true),
-        hasLength(1),
-      );
-      expect((await repos.expenses.all()).single.categoryId, categoryId);
-    });
+        expect(await repos.expenses.categories(), isEmpty);
+        expect(
+          await repos.expenses.categories(includeArchived: true),
+          hasLength(1),
+        );
+        expect((await repos.expenses.all()).single.categoryId, categoryId);
+      },
+    );
   });
 
   group('settings', () {

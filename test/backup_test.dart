@@ -10,7 +10,11 @@ import 'package:hisaab/services/backup_service.dart';
 import 'package:hisaab/services/database_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'support/memex_ac.dart';
+
 void main() {
+  useAcEmission('test/backup_test.dart');
+
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
@@ -179,7 +183,9 @@ void main() {
 
     test('every table the schema holds is carried', () async {
       await fill(book);
-      final Map<String, Object?> tables = tablesOf(decode(await backup.exportJson()));
+      final Map<String, Object?> tables = tablesOf(
+        decode(await backup.exportJson()),
+      );
 
       for (final String table in backupTableOrder) {
         expect(tables[table], isA<List<Object?>>(), reason: table);
@@ -192,7 +198,9 @@ void main() {
     });
 
     test('the migration ledger is not part of the book', () async {
-      final Map<String, Object?> tables = tablesOf(decode(await backup.exportJson()));
+      final Map<String, Object?> tables = tablesOf(
+        decode(await backup.exportJson()),
+      );
       expect(tables.containsKey('schema_migrations'), isFalse);
     });
 
@@ -201,36 +209,37 @@ void main() {
       final File file = await backup.exportToFile('${home.path}/out.json');
 
       expect(await file.exists(), isTrue);
-      expect(
-        decode(await file.readAsString())['format'],
-        'hisaab-backup',
-      );
+      expect(decode(await file.readAsString())['format'], 'hisaab-backup');
     });
   });
 
   group('summary', () {
-    test('it reads the file without opening any database', () async {
-      await fill(book);
-      final String text = await backup.exportJson(
-        generatedAt: DateTime(2026, 9, 9),
-      );
-      await book.close();
+    acTest(
+      'it reads the file without opening any database',
+      <String>['ac-29'],
+      () async {
+        await fill(book);
+        final String text = await backup.exportJson(
+          generatedAt: DateTime(2026, 9, 9),
+        );
+        await book.close();
 
-      final BackupSummary summary = BackupService.summarise(text);
+        final BackupSummary summary = BackupService.summarise(text);
 
-      expect(summary.schemaVersion, DatabaseService.latestVersion);
-      expect(summary.generatedAt, DateTime(2026, 9, 9));
-      expect(summary.rowCounts['people'], 1);
-      expect(summary.rowCounts['delivery_items'], 1);
-      expect(summary.rowCounts.keys.toSet(), backupTableOrder.toSet());
-      expect(summary.totalRows, 13);
-      expect(summary.isEmpty, isFalse);
+        expect(summary.schemaVersion, DatabaseService.latestVersion);
+        expect(summary.generatedAt, DateTime(2026, 9, 9));
+        expect(summary.rowCounts['people'], 1);
+        expect(summary.rowCounts['delivery_items'], 1);
+        expect(summary.rowCounts.keys.toSet(), backupTableOrder.toSet());
+        expect(summary.totalRows, 13);
+        expect(summary.isEmpty, isFalse);
 
-      // Reopen so the tear down has something to close.
-      book = await openBook('book');
-    });
+        // Reopen so the tear down has something to close.
+        book = await openBook('book');
+      },
+    );
 
-    test('an empty book summarises as empty', () async {
+    acTest('an empty book summarises as empty', <String>['ac-32'], () async {
       final BackupSummary summary = BackupService.summarise(
         await backup.exportJson(),
       );
@@ -240,53 +249,63 @@ void main() {
   });
 
   group('round trip', () {
-    test('export then import reproduces every row', () async {
-      await fill(book);
-      final Map<String, List<Map<String, Object?>>> before =
-          await snapshot(book);
-      final String text = await backup.exportJson();
+    acTest(
+      'export then import reproduces every row',
+      <String>['ac-30'],
+      () async {
+        await fill(book);
+        final Map<String, List<Map<String, Object?>>> before = await snapshot(
+          book,
+        );
+        final String text = await backup.exportJson();
 
-      final SqfliteRepositories other = await openBook('other');
-      addTearDown(other.close);
-      final BackupSummary summary =
-          await BackupService(other.database).importJson(text);
+        final SqfliteRepositories other = await openBook('other');
+        addTearDown(other.close);
+        final BackupSummary summary = await BackupService(
+          other.database,
+        ).importJson(text);
 
-      expect(summary.totalRows, 13);
-      final Map<String, List<Map<String, Object?>>> after =
-          await snapshot(other);
-      for (final String table in backupTableOrder) {
-        expect(after[table], before[table], reason: table);
-      }
-    });
+        expect(summary.totalRows, 13);
+        final Map<String, List<Map<String, Object?>>> after = await snapshot(
+          other,
+        );
+        for (final String table in backupTableOrder) {
+          expect(after[table], before[table], reason: table);
+        }
+      },
+    );
 
     test('a second import of the same file changes nothing', () async {
       await fill(book);
       final String text = await backup.exportJson();
       await backup.importJson(text);
-      final Map<String, List<Map<String, Object?>>> once =
-          await snapshot(book);
+      final Map<String, List<Map<String, Object?>>> once = await snapshot(book);
 
       await backup.importJson(text);
 
       expect(await snapshot(book), once);
     });
 
-    test('import replaces the book rather than merging into it', () async {
-      await fill(book);
-      final String text = await backup.exportJson();
+    acTest(
+      'import replaces the book rather than merging into it',
+      <String>['ac-29'],
+      () async {
+        await fill(book);
+        final String text = await backup.exportJson();
 
-      final SqfliteRepositories other = await openBook('other');
-      addTearDown(other.close);
-      await other.people.insert(const Person(id: null, name: 'Sunita'));
-      await other.people.insert(const Person(id: null, name: 'Kavita'));
+        final SqfliteRepositories other = await openBook('other');
+        addTearDown(other.close);
+        await other.people.insert(const Person(id: null, name: 'Sunita'));
+        await other.people.insert(const Person(id: null, name: 'Kavita'));
 
-      await BackupService(other.database).importJson(text);
+        await BackupService(other.database).importJson(text);
 
-      expect(
-        (await other.people.all()).map((Person each) => each.name).toList(),
-        <String>['Meera'],
-      );
-    });
+        expect(
+          (await other.people.all()).map((Person each) => each.name).toList(),
+          <String>['Meera'],
+        );
+      },
+    );
 
     test('an empty file empties the book', () async {
       final SqfliteRepositories empty = await openBook('empty');
@@ -311,8 +330,9 @@ void main() {
       Matcher message,
     ) async {
       await fill(book);
-      final Map<String, List<Map<String, Object?>>> before =
-          await snapshot(book);
+      final Map<String, List<Map<String, Object?>>> before = await snapshot(
+        book,
+      );
       final String broken = damage(await backup.exportJson());
 
       await expectLater(
@@ -327,36 +347,37 @@ void main() {
       );
       expect(() => BackupService.summarise(broken), throwsA(isA<Exception>()));
 
-      final Map<String, List<Map<String, Object?>>> after =
-          await snapshot(book);
+      final Map<String, List<Map<String, Object?>>> after = await snapshot(
+        book,
+      );
       for (final String table in backupTableOrder) {
         expect(after[table], before[table], reason: table);
         expect(after[table], hasLength(before[table]!.length), reason: table);
       }
     }
 
-    test('a truncated file', () async {
+    acTest('a truncated file', <String>['ac-28'], () async {
       await refuses(
         (String valid) => valid.substring(0, valid.length ~/ 2),
         contains('not valid JSON'),
       );
     });
 
-    test('a file cut off at the very end', () async {
+    acTest('a file cut off at the very end', <String>['ac-28'], () async {
       await refuses(
         (String valid) => valid.substring(0, valid.length - 1),
         contains('not valid JSON'),
       );
     });
 
-    test('an unrelated JSON file', () async {
+    acTest('an unrelated JSON file', <String>['ac-28'], () async {
       await refuses(
         (String valid) => '{"hello": "world"}',
         contains('not a Hisaab backup'),
       );
     });
 
-    test('a file written by a newer build', () async {
+    acTest('a file written by a newer build', <String>['ac-28'], () async {
       await refuses((String valid) {
         final Map<String, Object?> document = decode(valid);
         document['schema_version'] = DatabaseService.latestVersion + 1;
@@ -364,7 +385,7 @@ void main() {
       }, contains('newer build'));
     });
 
-    test('a file with no stamp', () async {
+    acTest('a file with no stamp', <String>['ac-28'], () async {
       await refuses((String valid) {
         final Map<String, Object?> document = decode(valid);
         document.remove('generated_at');
@@ -372,7 +393,7 @@ void main() {
       }, contains('generated_at'));
     });
 
-    test('a file missing a whole table', () async {
+    acTest('a file missing a whole table', <String>['ac-28'], () async {
       await refuses((String valid) {
         final Map<String, Object?> document = decode(valid);
         tablesOf(document).remove('money_entries');
@@ -380,15 +401,19 @@ void main() {
       }, contains('missing the money_entries table'));
     });
 
-    test('a file holding a table this build does not know', () async {
-      await refuses((String valid) {
-        final Map<String, Object?> document = decode(valid);
-        tablesOf(document)['invoices'] = <Object?>[];
-        return jsonEncode(document);
-      }, contains('invoices'));
-    });
+    acTest(
+      'a file holding a table this build does not know',
+      <String>['ac-28'],
+      () async {
+        await refuses((String valid) {
+          final Map<String, Object?> document = decode(valid);
+          tablesOf(document)['invoices'] = <Object?>[];
+          return jsonEncode(document);
+        }, contains('invoices'));
+      },
+    );
 
-    test('a row missing a column', () async {
+    acTest('a row missing a column', <String>['ac-28'], () async {
       await refuses((String valid) {
         final Map<String, Object?> document = decode(valid);
         final List<Object?> rows =
@@ -398,27 +423,35 @@ void main() {
       }, contains('is missing name'));
     });
 
-    test('a row with a column this build does not know', () async {
-      await refuses((String valid) {
-        final Map<String, Object?> document = decode(valid);
-        final List<Object?> rows =
-            tablesOf(document)['people']! as List<Object?>;
-        (rows.first! as Map<String, Object?>)['nickname'] = 'Mee';
-        return jsonEncode(document);
-      }, contains('nickname'));
-    });
+    acTest(
+      'a row with a column this build does not know',
+      <String>['ac-28'],
+      () async {
+        await refuses((String valid) {
+          final Map<String, Object?> document = decode(valid);
+          final List<Object?> rows =
+              tablesOf(document)['people']! as List<Object?>;
+          (rows.first! as Map<String, Object?>)['nickname'] = 'Mee';
+          return jsonEncode(document);
+        }, contains('nickname'));
+      },
+    );
 
-    test('money written as a decimal rather than paise', () async {
-      await refuses((String valid) {
-        final Map<String, Object?> document = decode(valid);
-        final List<Object?> rows =
-            tablesOf(document)['money_entries']! as List<Object?>;
-        (rows.first! as Map<String, Object?>)['amount_paise'] = 1000.5;
-        return jsonEncode(document);
-      }, contains('should be a whole number'));
-    });
+    acTest(
+      'money written as a decimal rather than paise',
+      <String>['ac-28'],
+      () async {
+        await refuses((String valid) {
+          final Map<String, Object?> document = decode(valid);
+          final List<Object?> rows =
+              tablesOf(document)['money_entries']! as List<Object?>;
+          (rows.first! as Map<String, Object?>)['amount_paise'] = 1000.5;
+          return jsonEncode(document);
+        }, contains('should be a whole number'));
+      },
+    );
 
-    test('a status no build has ever written', () async {
+    acTest('a status no build has ever written', <String>['ac-28'], () async {
       await refuses((String valid) {
         final Map<String, Object?> document = decode(valid);
         final List<Object?> rows =
@@ -428,46 +461,59 @@ void main() {
       }, contains('"posted"'));
     });
 
-    test('a money kind no build has ever written', () async {
-      await refuses((String valid) {
-        final Map<String, Object?> document = decode(valid);
+    acTest(
+      'a money kind no build has ever written',
+      <String>['ac-28'],
+      () async {
+        await refuses((String valid) {
+          final Map<String, Object?> document = decode(valid);
+          final List<Object?> rows =
+              tablesOf(document)['money_entries']! as List<Object?>;
+          (rows.first! as Map<String, Object?>)['kind'] = 'refund';
+          return jsonEncode(document);
+        }, contains('"refund"'));
+      },
+    );
+
+    acTest(
+      'a table holding something other than rows',
+      <String>['ac-28'],
+      () async {
+        await refuses((String valid) {
+          final Map<String, Object?> document = decode(valid);
+          tablesOf(document)['people'] = 'all of them';
+          return jsonEncode(document);
+        }, contains('should hold a list of rows'));
+      },
+    );
+
+    acTest(
+      'a line pointing at a delivery the file does not carry',
+      <String>['ac-28'],
+      () async {
+        // Validation passes on shape, so the write starts and the foreign key
+        // stops it. The rollback still has to leave the book untouched.
+        await fill(book);
+        final Map<String, List<Map<String, Object?>>> before = await snapshot(
+          book,
+        );
+        final Map<String, Object?> document = decode(await backup.exportJson());
         final List<Object?> rows =
-            tablesOf(document)['money_entries']! as List<Object?>;
-        (rows.first! as Map<String, Object?>)['kind'] = 'refund';
-        return jsonEncode(document);
-      }, contains('"refund"'));
-    });
+            tablesOf(document)['delivery_items']! as List<Object?>;
+        (rows.first! as Map<String, Object?>)['delivery_id'] = 4242;
 
-    test('a table holding something other than rows', () async {
-      await refuses((String valid) {
-        final Map<String, Object?> document = decode(valid);
-        tablesOf(document)['people'] = 'all of them';
-        return jsonEncode(document);
-      }, contains('should hold a list of rows'));
-    });
+        await expectLater(
+          backup.importJson(jsonEncode(document)),
+          throwsA(isA<DatabaseException>()),
+        );
 
-    test('a line pointing at a delivery the file does not carry', () async {
-      // Validation passes on shape, so the write starts and the foreign key
-      // stops it. The rollback still has to leave the book untouched.
-      await fill(book);
-      final Map<String, List<Map<String, Object?>>> before =
-          await snapshot(book);
-      final Map<String, Object?> document = decode(await backup.exportJson());
-      final List<Object?> rows =
-          tablesOf(document)['delivery_items']! as List<Object?>;
-      (rows.first! as Map<String, Object?>)['delivery_id'] = 4242;
-
-      await expectLater(
-        backup.importJson(jsonEncode(document)),
-        throwsA(isA<DatabaseException>()),
-      );
-
-      expect(await snapshot(book), before);
-    });
+        expect(await snapshot(book), before);
+      },
+    );
   });
 
   group('there is no merge path', () {
-    test('nothing under lib/ offers one', () {
+    acTest('nothing under lib/ offers one', <String>['ac-29'], () {
       final Directory lib = Directory('lib');
       expect(lib.existsSync(), isTrue, reason: 'run this from the repo root');
 

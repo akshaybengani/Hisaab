@@ -3,6 +3,8 @@ import 'package:hisaab/constants.dart';
 import 'package:hisaab/helpers/stock_math.dart';
 import 'package:hisaab/models/models.dart';
 
+import 'support/memex_ac.dart';
+
 /// The stock arithmetic. On hand is always derived from purchases,
 /// deliveries, and adjustments, so every figure here can be traced to rows.
 
@@ -98,24 +100,30 @@ ProductRequest asked({
 );
 
 void main() {
+  useAcEmission('test/stock_math_test.dart');
+
   group('level', () {
-    test('on hand comes from purchases alone where nothing has moved out', () {
-      final StockLevel level = levelOf(
-        purchases: <PurchaseItem>[
-          bought(qty: 6),
-          bought(id: 2, purchaseId: 2, qty: 4),
-        ],
-      );
+    acTest(
+      'on hand comes from purchases alone where nothing has moved out',
+      <String>['ac-13'],
+      () {
+        final StockLevel level = levelOf(
+          purchases: <PurchaseItem>[
+            bought(qty: 6),
+            bought(id: 2, purchaseId: 2, qty: 4),
+          ],
+        );
 
-      expect(level.purchased, 10);
-      expect(level.delivered, 0);
-      expect(level.adjusted, 0);
-      expect(level.onHand, 10);
-      expect(level.isOut, isFalse);
-      expect(level.valuePaise, 2050000);
-    });
+        expect(level.purchased, 10);
+        expect(level.delivered, 0);
+        expect(level.adjusted, 0);
+        expect(level.onHand, 10);
+        expect(level.isOut, isFalse);
+        expect(level.valuePaise, 2050000);
+      },
+    );
 
-    test('deliveries come off the purchased figure', () {
+    acTest('deliveries come off the purchased figure', <String>['ac-13'], () {
       final StockLevel level = levelOf(
         purchases: <PurchaseItem>[bought(qty: 10)],
         deliveries: <DeliveryItem>[
@@ -128,21 +136,25 @@ void main() {
       expect(level.onHand, 5);
     });
 
-    test('every adjustment reason moves on hand by its own delta', () {
-      for (final StockReason reason in StockReason.values) {
-        final StockLevel level = levelOf(
-          purchases: <PurchaseItem>[bought(qty: 10)],
-          adjustments: <StockAdjustment>[
-            adjusted(qtyDelta: -1, reason: reason, date: sep8),
-          ],
-        );
+    acTest(
+      'every adjustment reason moves on hand by its own delta',
+      <String>['ac-13'],
+      () {
+        for (final StockReason reason in StockReason.values) {
+          final StockLevel level = levelOf(
+            purchases: <PurchaseItem>[bought(qty: 10)],
+            adjustments: <StockAdjustment>[
+              adjusted(qtyDelta: -1, reason: reason, date: sep8),
+            ],
+          );
 
-        expect(level.adjusted, -1, reason: reason.value);
-        expect(level.onHand, 9, reason: reason.value);
-      }
-    });
+          expect(level.adjusted, -1, reason: reason.value);
+          expect(level.onHand, 9, reason: reason.value);
+        }
+      },
+    );
 
-    test('adjustments in both directions net out', () {
+    acTest('adjustments in both directions net out', <String>['ac-13'], () {
       final StockLevel level = levelOf(
         purchases: <PurchaseItem>[bought(qty: 10)],
         deliveries: <DeliveryItem>[handedOut(qty: 4)],
@@ -157,16 +169,20 @@ void main() {
       expect(level.onHand, 6);
     });
 
-    test('a negative on hand is kept, because it means a row is missing', () {
-      final StockLevel level = levelOf(
-        purchases: <PurchaseItem>[bought(qty: 1)],
-        deliveries: <DeliveryItem>[handedOut(qty: 3)],
-      );
+    acTest(
+      'a negative on hand is kept, because it means a row is missing',
+      <String>['ac-13'],
+      () {
+        final StockLevel level = levelOf(
+          purchases: <PurchaseItem>[bought(qty: 1)],
+          deliveries: <DeliveryItem>[handedOut(qty: 3)],
+        );
 
-      expect(level.onHand, -2);
-      expect(level.isOut, isTrue);
-      expect(level.valuePaise, -410000);
-    });
+        expect(level.onHand, -2);
+        expect(level.isOut, isTrue);
+        expect(level.valuePaise, -410000);
+      },
+    );
 
     test('empty lists give a zero level rather than an error', () {
       final StockLevel level = levelOf();
@@ -180,7 +196,7 @@ void main() {
       expect(level.product.name, 'Formula 1');
     });
 
-    test('rows for another product are left out', () {
+    acTest('rows for another product are left out', <String>['ac-13'], () {
       final StockLevel level = levelOf(
         purchases: <PurchaseItem>[
           bought(qty: 10),
@@ -204,41 +220,57 @@ void main() {
   });
 
   group('recountDelta', () {
-    test('a count of 5 against 7 on hand stores minus 2', () {
-      expect(StockMath.recountDelta(currentOnHand: 7, countedOnHand: 5), -2);
-    });
+    acTest(
+      'a count of 5 against 7 on hand stores minus 2',
+      <String>['ac-15'],
+      () {
+        expect(StockMath.recountDelta(currentOnHand: 7, countedOnHand: 5), -2);
+      },
+    );
 
-    test('a count above the derived figure stores a positive delta', () {
-      expect(StockMath.recountDelta(currentOnHand: 5, countedOnHand: 7), 2);
-    });
+    acTest(
+      'a count above the derived figure stores a positive delta',
+      <String>['ac-15'],
+      () {
+        expect(StockMath.recountDelta(currentOnHand: 5, countedOnHand: 7), 2);
+      },
+    );
 
-    test('a count that agrees stores nothing', () {
+    acTest('a count that agrees stores nothing', <String>['ac-15'], () {
       expect(StockMath.recountDelta(currentOnHand: 5, countedOnHand: 5), 0);
     });
 
-    test('the delta lands on hand exactly on the counted figure', () {
-      final StockLevel before = levelOf(
-        purchases: <PurchaseItem>[bought(qty: 7)],
-      );
-      final int delta = StockMath.recountDelta(
-        currentOnHand: before.onHand,
-        countedOnHand: 5,
-      );
-      final StockLevel after = levelOf(
-        purchases: <PurchaseItem>[bought(qty: 7)],
-        adjustments: <StockAdjustment>[
-          adjusted(qtyDelta: delta, reason: StockReason.recount, date: sep9),
-        ],
-      );
+    acTest(
+      'the delta lands on hand exactly on the counted figure',
+      <String>['ac-15'],
+      () {
+        final StockLevel before = levelOf(
+          purchases: <PurchaseItem>[bought(qty: 7)],
+        );
+        final int delta = StockMath.recountDelta(
+          currentOnHand: before.onHand,
+          countedOnHand: 5,
+        );
+        final StockLevel after = levelOf(
+          purchases: <PurchaseItem>[bought(qty: 7)],
+          adjustments: <StockAdjustment>[
+            adjusted(qtyDelta: delta, reason: StockReason.recount, date: sep9),
+          ],
+        );
 
-      expect(delta, -2);
-      expect(after.onHand, 5);
-      expect(after.purchased, 7);
-    });
+        expect(delta, -2);
+        expect(after.onHand, 5);
+        expect(after.purchased, 7);
+      },
+    );
 
-    test('a count against a negative on hand still reconciles', () {
-      expect(StockMath.recountDelta(currentOnHand: -2, countedOnHand: 3), 5);
-    });
+    acTest(
+      'a count against a negative on hand still reconciles',
+      <String>['ac-15'],
+      () {
+        expect(StockMath.recountDelta(currentOnHand: -2, countedOnHand: 3), 5);
+      },
+    );
   });
 
   group('history', () {
@@ -264,18 +296,24 @@ void main() {
         deliveryDates: <int, DateTime>{1: sep7},
       );
 
-      expect(
-        movements.map((StockMovement m) => m.date).toList(),
-        <DateTime>[sep3, sep7, sep8, sep9],
-      );
-      expect(
-        movements.map((StockMovement m) => m.label).toList(),
-        <String>['Purchased', 'Delivered', 'Damaged', 'Recount'],
-      );
-      expect(
-        movements.map((StockMovement m) => m.qtyDelta).toList(),
-        <int>[10, -2, -1, -2],
-      );
+      expect(movements.map((StockMovement m) => m.date).toList(), <DateTime>[
+        sep3,
+        sep7,
+        sep8,
+        sep9,
+      ]);
+      expect(movements.map((StockMovement m) => m.label).toList(), <String>[
+        'Purchased',
+        'Delivered',
+        'Damaged',
+        'Recount',
+      ]);
+      expect(movements.map((StockMovement m) => m.qtyDelta).toList(), <int>[
+        10,
+        -2,
+        -1,
+        -2,
+      ]);
       expect(
         movements.map((StockMovement m) => m.runningOnHand).toList(),
         <int>[10, 8, 7, 5],
@@ -321,10 +359,10 @@ void main() {
         deliveryDates: <int, DateTime>{1: sep3},
       );
 
-      expect(
-        movements.map((StockMovement m) => m.label).toList(),
-        <String>['Purchased', 'Delivered'],
-      );
+      expect(movements.map((StockMovement m) => m.label).toList(), <String>[
+        'Purchased',
+        'Delivered',
+      ]);
       expect(
         movements.map((StockMovement m) => m.runningOnHand).toList(),
         <int>[3, 0],
@@ -378,38 +416,43 @@ void main() {
   });
 
   group('shoppingList', () {
-    test('three people asking for one product collapse into one line', () {
-      final List<ShoppingListLine> lines = StockMath.shoppingList(
-        pending: <ProductRequest>[
-          asked(qty: 2),
-          asked(id: 2, personId: 8, qty: 1),
-          asked(id: 3, personId: 9, qty: 3),
-        ],
-        productsById: <int, Product>{1: formula1},
-      );
+    acTest(
+      'three people asking for one product collapse into one line',
+      <String>['ac-27'],
+      () {
+        final List<ShoppingListLine> lines = StockMath.shoppingList(
+          pending: <ProductRequest>[
+            asked(qty: 2),
+            asked(id: 2, personId: 8, qty: 1),
+            asked(id: 3, personId: 9, qty: 3),
+          ],
+          productsById: <int, Product>{1: formula1},
+        );
 
-      final ShoppingListLine line = lines.single;
-      expect(line.productId, 1);
-      expect(line.productName, 'Formula 1');
-      expect(line.unitLabel, 'tub');
-      expect(line.qty, 6);
-      expect(line.requestCount, 3);
-    });
+        final ShoppingListLine line = lines.single;
+        expect(line.productId, 1);
+        expect(line.productName, 'Formula 1');
+        expect(line.unitLabel, 'tub');
+        expect(line.qty, 6);
+        expect(line.requestCount, 3);
+      },
+    );
 
-    test('two requests from one person count as one person asking', () {
-      final List<ShoppingListLine> lines = StockMath.shoppingList(
-        pending: <ProductRequest>[
-          asked(qty: 2),
-          asked(id: 2, qty: 1),
-        ],
-        productsById: <int, Product>{1: formula1},
-      );
+    acTest(
+      'two requests from one person count as one person asking',
+      <String>['ac-27'],
+      () {
+        final List<ShoppingListLine> lines = StockMath.shoppingList(
+          pending: <ProductRequest>[asked(qty: 2), asked(id: 2, qty: 1)],
+          productsById: <int, Product>{1: formula1},
+        );
 
-      expect(lines.single.qty, 3);
-      expect(lines.single.requestCount, 1);
-    });
+        expect(lines.single.qty, 3);
+        expect(lines.single.requestCount, 1);
+      },
+    );
 
-    test('one line per product, ordered by name', () {
+    acTest('one line per product, ordered by name', <String>['ac-27'], () {
       final List<ShoppingListLine> lines = StockMath.shoppingList(
         pending: <ProductRequest>[
           asked(qty: 2),
@@ -425,20 +468,24 @@ void main() {
       expect(lines.map((ShoppingListLine l) => l.qty).toList(), <int>[5, 2]);
     });
 
-    test('anything past the pending stage is left off the list', () {
-      final List<ShoppingListLine> lines = StockMath.shoppingList(
-        pending: <ProductRequest>[
-          asked(qty: 2),
-          asked(id: 2, personId: 8, qty: 4, status: RequestStatus.ordered),
-          asked(id: 3, personId: 9, qty: 8, status: RequestStatus.delivered),
-          asked(id: 4, personId: 9, qty: 16, status: RequestStatus.cancelled),
-        ],
-        productsById: <int, Product>{1: formula1},
-      );
+    acTest(
+      'anything past the pending stage is left off the list',
+      <String>['ac-27'],
+      () {
+        final List<ShoppingListLine> lines = StockMath.shoppingList(
+          pending: <ProductRequest>[
+            asked(qty: 2),
+            asked(id: 2, personId: 8, qty: 4, status: RequestStatus.ordered),
+            asked(id: 3, personId: 9, qty: 8, status: RequestStatus.delivered),
+            asked(id: 4, personId: 9, qty: 16, status: RequestStatus.cancelled),
+          ],
+          productsById: <int, Product>{1: formula1},
+        );
 
-      expect(lines.single.qty, 2);
-      expect(lines.single.requestCount, 1);
-    });
+        expect(lines.single.qty, 2);
+        expect(lines.single.requestCount, 1);
+      },
+    );
 
     test('a request for a product that is gone is left off the list', () {
       final List<ShoppingListLine> lines = StockMath.shoppingList(
