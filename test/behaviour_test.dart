@@ -8,6 +8,9 @@ import 'package:hisaab/components/requests_view.dart';
 import 'package:hisaab/components/settings_view.dart';
 import 'package:hisaab/components/stock_view.dart';
 import 'package:hisaab/models/models.dart';
+import 'package:hisaab/providers/app_state.dart';
+import 'package:hisaab/screens/reports_screen.dart';
+import 'package:hisaab/services/share_service.dart';
 
 import 'support/harness.dart';
 import 'support/memex_ac.dart';
@@ -520,6 +523,69 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('1.0.0 (1)'), findsOneWidget);
+    });
+  });
+
+  group('reports', () {
+    /// Reads the message a row would actually send.
+    ///
+    /// The share sheet is the path taken when WhatsApp is not installed, and
+    /// a list going to nobody in particular takes it either way.
+    Future<String?> sendFrom(WidgetTester tester, String row) async {
+      ShareParams? sent;
+      final ShareService capture = ShareService(
+        openUrl: (Uri url) async => false,
+        shareSheet: (ShareParams params) async => sent = params,
+      );
+      await withQuietLogs(() async {
+        final AppState state = await loadedState();
+        await pumpOnSmallPhone(
+          tester,
+          ReportsScreen(now: DateTime(2026, 9, 10), share: capture),
+          brightness: Brightness.light,
+          state: state,
+        );
+        await tester.scrollUntilVisible(
+          find.text(row),
+          120,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.ancestor(of: find.text(row), matching: find.byType(Card)),
+            matching: find.text('Share as text'),
+          ),
+        );
+        await tester.pumpAndSettle();
+      });
+      return sent?.text;
+    }
+
+    testWidgets('the shopping list goes out consolidated, one line per '
+        'product, counting people rather than rows', (
+      WidgetTester tester,
+    ) async {
+      final String? message = await sendFrom(tester, 'Shopping list');
+      expect(message, isNotNull);
+      expect(message, contains('3 jar Afresh tea (1 person)'));
+      expect(
+        message,
+        contains('Estimated total \u20B93,675'),
+        reason: 'three jars at 1,225 each, valued at today\'s price',
+      );
+    });
+
+    testWidgets('what is in stock still names a product that has run out', (
+      WidgetTester tester,
+    ) async {
+      final String? message = await sendFrom(tester, 'What is in stock now');
+      expect(message, isNotNull);
+      expect(
+        message,
+        contains('Formula 1 shake, out of stock'),
+        reason: 'out of stock is the answer the person asking is looking for',
+      );
     });
   });
 }

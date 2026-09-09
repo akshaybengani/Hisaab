@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -12,17 +14,30 @@ import '../constants.dart';
 import '../helpers/dates.dart';
 import '../models/models.dart';
 import '../providers/app_state.dart';
+import '../services/share_service.dart';
+import '../services/statement_csv_service.dart';
 import '../services/statement_pdf_service.dart';
 import '../services/statement_text_service.dart';
 import 'collect_screen.dart';
 import 'navigation.dart';
 import 'person_edit_screen.dart';
 
+/// What the app bar menu can produce for one person.
+enum _PersonAction { reminder, receipt, spreadsheet }
+
 /// One person's statement, ledger and actions.
 class PersonDetailScreen extends StatelessWidget {
-  const PersonDetailScreen({required this.person, super.key});
+  const PersonDetailScreen({
+    required this.person,
+    this.share = const ShareService(),
+    super.key,
+  });
 
   final Person person;
+
+  /// The one way out of the app, injected so a test can read the message that
+  /// would have been sent instead of standing up a method channel.
+  final ShareService share;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +48,33 @@ class PersonDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(person.name),
         actions: <Widget>[
+          if (statement != null)
+            PopupMenuButton<_PersonAction>(
+              tooltip: 'Send and share',
+              icon: const Icon(Icons.send_outlined),
+              onSelected: (_PersonAction choice) =>
+                  unawaited(_send(state, statement, choice)),
+              itemBuilder: (BuildContext context) =>
+                  <PopupMenuEntry<_PersonAction>>[
+                    // A nudge only makes sense to someone who is behind.
+                    // Sending one to a person who owes nothing, or who is in
+                    // credit, is the kind of message that ends a favour.
+                    if (statement.netPaise > 0)
+                      const PopupMenuItem<_PersonAction>(
+                        value: _PersonAction.reminder,
+                        child: Text('Send a reminder'),
+                      ),
+                    const PopupMenuItem<_PersonAction>(
+                      value: _PersonAction.receipt,
+                      child: Text('Send a receipt'),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem<_PersonAction>(
+                      value: _PersonAction.spreadsheet,
+                      child: Text('Share as spreadsheet'),
+                    ),
+                  ],
+            ),
           IconButton(
             onPressed: () =>
                 openScreen(context, PersonEditScreen(person: person)),
@@ -84,6 +126,41 @@ class PersonDetailScreen extends StatelessWidget {
     );
     if (!context.mounted) return;
     say(context, 'Cash loan recorded.');
+  }
+
+  /// The two messages and the spreadsheet.
+  ///
+  /// A message carries the user's own wording out of `app_settings` and goes
+  /// straight into a WhatsApp chat where a number is saved. The CSV is a file,
+  /// so it can only go to the share sheet.
+  Future<void> _send(
+    AppState state,
+    Statement statement,
+    _PersonAction choice,
+  ) async {
+    switch (choice) {
+      case _PersonAction.reminder:
+        await share.sendText(
+          person,
+          await StatementTextService(
+            state.repositories.settings,
+          ).reminder(statement),
+        );
+      case _PersonAction.receipt:
+        await share.sendText(
+          person,
+          await StatementTextService(
+            state.repositories.settings,
+          ).receipt(statement),
+        );
+      case _PersonAction.spreadsheet:
+        final Directory folder = Directory.systemTemp.createTempSync('hisaab-');
+        final File file = await StatementCsvService.toFile(
+          '${folder.path}/statement-${person.name.toLowerCase()}.csv',
+          StatementCsvService.statement(statement),
+        );
+        await share.sendFile(file, subject: 'Statement for ${person.name}');
+    }
   }
 
   Future<void> _shareText(AppState state, Statement statement) async {
