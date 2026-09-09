@@ -5,6 +5,7 @@ import '../helpers/money.dart';
 import '../models/models.dart';
 import 'empty_state.dart';
 import 'money_field.dart';
+import 'search_field.dart';
 import 'section_header.dart';
 
 /// The owner's own spending, with this month's total on top.
@@ -44,12 +45,49 @@ class ExpensesView extends StatelessWidget {
       );
     }
 
+    return SearchScope<Expense>(
+      hint: 'Search expenses',
+      items: expenses,
+      fieldsOf: (Expense expense) => <String?>[
+        expense.note,
+        categoriesById[expense.categoryId]?.name,
+      ],
+      builder: (BuildContext context, List<Expense> rows) => _ExpenseList(
+        expenses: rows,
+        categoriesById: categoriesById,
+        onTapExpense: onTapExpense,
+        month: month,
+      ),
+    );
+  }
+}
+
+/// The list under the field.
+///
+/// The month total sums the rows showing, so a heading never disagrees with
+/// what is under it. With no search running, that is every row.
+class _ExpenseList extends StatelessWidget {
+  const _ExpenseList({
+    required this.expenses,
+    required this.categoriesById,
+    required this.onTapExpense,
+    this.month,
+  });
+
+  final List<Expense> expenses;
+  final Map<int, ExpenseCategory> categoriesById;
+  final ValueChanged<Expense> onTapExpense;
+  final DateTime? month;
+
+  @override
+  Widget build(BuildContext context) {
     final DateTime month = this.month ?? DateTime.now();
     final List<Expense> sorted = <Expense>[...expenses]
       ..sort((Expense a, Expense b) => b.date.compareTo(a.date));
     final int monthTotal = sorted
         .where(
-          (Expense e) => e.date.year == month.year && e.date.month == month.month,
+          (Expense e) =>
+              e.date.year == month.year && e.date.month == month.month,
         )
         .fold(0, (int sum, Expense e) => sum + e.amountPaise);
 
@@ -220,9 +258,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
   Widget build(BuildContext context) {
     final VoidCallback? onDelete = widget.onDelete;
     final List<ExpenseCategory> pickable = widget.categories
-        .where(
-          (ExpenseCategory c) => !c.archived || c.id == _categoryId,
-        )
+        .where((ExpenseCategory c) => !c.archived || c.id == _categoryId)
         .toList(growable: false);
     return Form(
       key: _form,

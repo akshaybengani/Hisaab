@@ -5,6 +5,7 @@ import '../helpers/money.dart';
 import '../models/models.dart';
 import '../providers/view_models.dart';
 import 'empty_state.dart';
+import 'search_field.dart';
 
 /// What the owner bought and paid for.
 class PurchasesView extends StatelessWidget {
@@ -33,6 +34,40 @@ class PurchasesView extends StatelessWidget {
         onAction: onAddPurchase,
       );
     }
+    return SearchScope<PurchaseWithItems>(
+      hint: 'Search purchases',
+      items: purchases,
+      fieldsOf: (PurchaseWithItems purchase) => <String?>[
+        purchase.purchase.vendor,
+        purchase.purchase.note,
+        for (final PurchaseItem item in purchase.items) ...<String?>[
+          productsById[item.productId]?.name,
+          productsById[item.productId]?.unitLabel,
+        ],
+      ],
+      builder: (BuildContext context, List<PurchaseWithItems> rows) =>
+          _PurchaseList(
+            purchases: rows,
+            productsById: productsById,
+            onTapPurchase: onTapPurchase,
+          ),
+    );
+  }
+}
+
+class _PurchaseList extends StatelessWidget {
+  const _PurchaseList({
+    required this.purchases,
+    required this.productsById,
+    required this.onTapPurchase,
+  });
+
+  final List<PurchaseWithItems> purchases;
+  final Map<int, Product> productsById;
+  final ValueChanged<PurchaseWithItems> onTapPurchase;
+
+  @override
+  Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),

@@ -5,6 +5,7 @@ import '../helpers/money.dart';
 import '../models/models.dart';
 import '../providers/view_models.dart';
 import 'empty_state.dart';
+import 'search_field.dart';
 import 'section_header.dart';
 
 /// The home surface: one figure for everything that is out, then who owes and
@@ -42,18 +43,52 @@ class DuesView extends StatelessWidget {
       );
     }
 
+    return SearchScope<PersonBalance>(
+      hint: 'Search dues',
+      items: balances,
+      fieldsOf: (PersonBalance balance) => <String?>[
+        balance.person.name,
+        balance.person.phone,
+        balance.person.note,
+      ],
+      builder: (BuildContext context, List<PersonBalance> rows) => _DuesList(
+        balances: rows,
+        onTapPerson: onTapPerson,
+        onSeePeople: onSeePeople,
+      ),
+    );
+  }
+}
+
+/// The list under the field.
+///
+/// The figures on the cash out card and the section headers total the rows
+/// showing, so a search never leaves a heading that disagrees with what is
+/// under it. With no search running, that is every row, which is what it was
+/// before search existed.
+class _DuesList extends StatelessWidget {
+  const _DuesList({
+    required this.balances,
+    required this.onTapPerson,
+    this.onSeePeople,
+  });
+
+  final List<PersonBalance> balances;
+  final ValueChanged<PersonBalance> onTapPerson;
+  final VoidCallback? onSeePeople;
+
+  @override
+  Widget build(BuildContext context) {
     final List<PersonBalance> toCollect =
-        balances.where((PersonBalance b) => b.owes).toList()
-          ..sort(
-            (PersonBalance a, PersonBalance b) =>
-                b.netPaise.compareTo(a.netPaise),
-          );
+        balances.where((PersonBalance b) => b.owes).toList()..sort(
+          (PersonBalance a, PersonBalance b) =>
+              b.netPaise.compareTo(a.netPaise),
+        );
     final List<PersonBalance> toPay =
-        balances.where((PersonBalance b) => b.isOwed).toList()
-          ..sort(
-            (PersonBalance a, PersonBalance b) =>
-                a.netPaise.compareTo(b.netPaise),
-          );
+        balances.where((PersonBalance b) => b.isOwed).toList()..sort(
+          (PersonBalance a, PersonBalance b) =>
+              a.netPaise.compareTo(b.netPaise),
+        );
 
     final int cashOut = toCollect.fold(
       0,
@@ -152,7 +187,10 @@ class _CashOutCard extends StatelessWidget {
             ),
             if (onSeePeople != null) ...<Widget>[
               const SizedBox(height: 8),
-              TextButton(onPressed: onSeePeople, child: const Text('See everyone')),
+              TextButton(
+                onPressed: onSeePeople,
+                child: const Text('See everyone'),
+              ),
             ],
           ],
         ),

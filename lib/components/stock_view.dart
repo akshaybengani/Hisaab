@@ -5,6 +5,7 @@ import '../helpers/money.dart';
 import '../models/models.dart';
 import '../providers/view_models.dart';
 import 'empty_state.dart';
+import 'search_field.dart';
 
 /// One row per product with the derived figure on hand.
 ///
@@ -44,16 +45,26 @@ class StockView extends StatelessWidget {
         onAction: onAddProduct,
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
-      itemCount: levels.length,
-      itemBuilder: (BuildContext context, int index) => _StockCard(
-        level: levels[index],
-        onStep: onStep,
-        onOpenHistory: onOpenHistory,
-        onPersonalUse: onPersonalUse,
-        onRecount: onRecount,
-      ),
+    return SearchScope<StockLevel>(
+      hint: 'Search stock',
+      items: levels,
+      fieldsOf: (StockLevel level) => <String?>[
+        level.product.name,
+        level.product.unitLabel,
+        level.product.category,
+      ],
+      builder: (BuildContext context, List<StockLevel> rows) =>
+          ListView.builder(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+            itemCount: rows.length,
+            itemBuilder: (BuildContext context, int index) => _StockCard(
+              level: rows[index],
+              onStep: onStep,
+              onOpenHistory: onOpenHistory,
+              onPersonalUse: onPersonalUse,
+              onRecount: onRecount,
+            ),
+          ),
     );
   }
 }
@@ -109,10 +120,7 @@ class _StockCard extends StatelessWidget {
                             value: 0,
                             child: Text('Used it myself'),
                           ),
-                          PopupMenuItem<int>(
-                            value: 1,
-                            child: Text('Recount'),
-                          ),
+                          PopupMenuItem<int>(value: 1, child: Text('Recount')),
                           PopupMenuItem<int>(
                             value: 2,
                             child: Text('Movement history'),
