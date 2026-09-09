@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/branding/icon.png" width="104" alt="Hisaab" />
+
 # Hisaab
 
 **A fully offline ledger for handing out products at cost and collecting the cash back.**
@@ -7,9 +9,9 @@
 Not an inventory app. It tracks who owes you money, and stock is a by-product.
 
 [![Status](https://img.shields.io/badge/status-designed%2C%20not%20built-B3261E)](#what-exists-today)
-[![Platform](https://img.shields.io/badge/platform-Android-1B5E4F)](#running-it)
-[![Flutter](https://img.shields.io/badge/Flutter-3.44%2B-1B5E4F)](#running-it)
-[![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-1B5E4F)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Android-333196)](#running-it)
+[![Flutter](https://img.shields.io/badge/Flutter-3.44%2B-333196)](#running-it)
+[![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-333196)](LICENSE)
 
 </div>
 
@@ -17,7 +19,7 @@ Not an inventory app. It tracks who owes you money, and stock is a by-product.
 
 ## What exists today
 
-Nothing is built. As of 9 Sep 2026 this repository holds this README and nothing else.
+Nothing is built. As of 9 Sep 2026 this repository holds this README, the licence, and the branding assets.
 
 The design below is settled and recorded as a spec, with every choice written down alongside the alternative it beat. Each section says plainly whether the thing it describes exists. Nothing here is a feature list of software you can run.
 
@@ -90,7 +92,7 @@ The book records what named neighbours owe a private individual. Those people ne
 
 ## Repository layout
 
-Currently this README, the licence, and a `.gitignore`. The planned shape, none of which exists:
+Currently this README, the licence, `.gitignore`, and `assets/branding/` holding the app icon. The planned shape, none of which exists:
 
 ```
 lib/
